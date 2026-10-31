@@ -5,24 +5,34 @@ import { MemoryDocument, RetrievedMemory, MemoryType, MemoryStatus } from '@/typ
 
 const COLLECTION_NAME = 'memories';
 
-// In-memory fallback cache in case MongoDB is temporarily offline or connection string is pending
-const inMemoryStore: MemoryDocument[] = [];
-export const memoryEventBus = {
-  listeners: [] as Array<(event: any) => void>,
-  subscribe(fn: (event: any) => void) {
-    this.listeners.push(fn);
-    return () => {
-      this.listeners = this.listeners.filter((l) => l !== fn);
-    };
-  },
-  emit(event: any) {
-    this.listeners.forEach((fn) => {
-      try {
-        fn(event);
-      } catch {}
-    });
-  },
-};
+declare global {
+  // eslint-disable-next-line no-var
+  var _inMemoryStore: MemoryDocument[] | undefined;
+  // eslint-disable-next-line no-var
+  var _memoryEventBus: any | undefined;
+}
+
+// In-memory fallback cache attached to global scope so it persists across Next.js dev route compilations
+const inMemoryStore: MemoryDocument[] = global._inMemoryStore || (global._inMemoryStore = []);
+
+export const memoryEventBus =
+  global._memoryEventBus ||
+  (global._memoryEventBus = {
+    listeners: [] as Array<(event: any) => void>,
+    subscribe(fn: (event: any) => void) {
+      this.listeners.push(fn);
+      return () => {
+        this.listeners = this.listeners.filter((l: any) => l !== fn);
+      };
+    },
+    emit(event: any) {
+      this.listeners.forEach((fn: any) => {
+        try {
+          fn(event);
+        } catch {}
+      });
+    },
+  });
 
 export interface StoreMemoryParams {
   workspaceId: string;
@@ -73,7 +83,6 @@ export async function storeMemory(params: StoreMemoryParams): Promise<{
       .toArray();
     isMongoActive = true;
   } catch (err) {
-    console.warn('MongoDB connection pending or offline, using fallback store:', (err as any).message);
     existingActive = inMemoryStore.filter(
       (m) => m.workspaceId === params.workspaceId && m.lifecycle.status === 'active'
     );
@@ -82,14 +91,16 @@ export async function storeMemory(params: StoreMemoryParams): Promise<{
   let conflictedMemory: MemoryDocument | null = null;
 
   for (const existing of existingActive) {
+    const isContradiction = checkContradictionWords(existing.content, params.content);
+    if (isContradiction) {
+      conflictedMemory = existing;
+      break;
+    }
     if (existing.embedding && existing.embedding.length > 0) {
       const sim = cosineSimilarity(embedding, existing.embedding);
-      if (sim > 0.70) {
-        const isContradiction = checkContradictionWords(existing.content, params.content);
-        if (isContradiction) {
-          conflictedMemory = existing;
-          break;
-        }
+      if (sim > 0.55 && isContradiction) {
+        conflictedMemory = existing;
+        break;
       }
     }
   }
@@ -144,7 +155,6 @@ export async function storeMemory(params: StoreMemoryParams): Promise<{
         );
       }
     } catch {
-      // In-memory fallback
       saveToInMemory(newDoc, conflictedMemory, now);
     }
   } else {
@@ -293,7 +303,6 @@ export async function recallMemories(
       candidateDocs = await collection.find(filterQuery).toArray();
     }
   } catch (err) {
-    // MongoDB offline: use in-memory store
     purgeExpiredInMemory();
     candidateDocs = inMemoryStore.filter(
       (m) => m.workspaceId === options.workspaceId && m.lifecycle.status === 'active'
@@ -307,24 +316,29 @@ export async function recallMemories(
         let sim = 0;
         if (doc.embedding && doc.embedding.length > 0) {
           sim = cosineSimilarity(queryVector, doc.embedding);
-        } else {
-          const qWords = query.toLowerCase().split(/\s+/);
-          const cWords = (doc.title + ' ' + doc.content).toLowerCase();
-          const matches = qWords.filter((w) => cWords.includes(w)).length;
-          sim = matches / Math.max(qWords.length, 1);
         }
+
+        const qWords = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+        const cWords = (doc.title + ' ' + doc.content + ' ' + (doc.tags || []).join(' ')).toLowerCase();
+        let conceptMatches = 0;
+        for (const w of qWords) {
+          if (cWords.includes(w)) conceptMatches++;
+        }
+        const conceptBoost = (conceptMatches / Math.max(qWords.length, 1)) * 0.45;
+        const combinedScore = Math.max(sim, sim * 0.5 + conceptBoost);
 
         const ageHours = (Date.now() - new Date(doc.updatedAt).getTime()) / (1000 * 3600);
         const recencyBonus = Math.max(0, 0.05 - ageHours * 0.001);
+        const finalScore = Math.min(0.98, combinedScore + recencyBonus);
 
         return {
           ...doc,
           _id: doc._id?.toString(),
-          similarityScore: Math.min(1.0, sim + recencyBonus),
-          retrievalReason: `Semantic cosine recall (score: ${((sim + recencyBonus) * 100).toFixed(1)}%)`,
+          similarityScore: finalScore,
+          retrievalReason: `Semantic vector & concept recall (score: ${(finalScore * 100).toFixed(1)}%)`,
         };
       })
-      .filter((doc) => (doc.similarityScore || 0) >= minScore)
+      .filter((doc) => (doc.similarityScore || 0) >= 0.15)
       .sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0))
       .slice(0, limit);
 

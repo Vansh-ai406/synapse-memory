@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: recallos
+    runtime: docker
+    plan: free
+    region: singapore
+    autoDeployTrigger: off
+    healthCheckPath: /health/ready
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: recallos
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_CHAT_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_EMBED_MODEL
+        value: gemini-embedding-001
+      - key: EMBEDDING_DIMENSIONS
+        value: 768
+      - key: JWT_SECRET
+        generateValue: true

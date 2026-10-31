@@ -10,8 +10,7 @@ from typing import List
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-def _current_user_id() -> str:
-    return get_current_user_id()
+_current_user_id = get_current_user_id
 
 
 @router.get("/stats")

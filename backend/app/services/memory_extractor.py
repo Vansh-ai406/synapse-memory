@@ -1,45 +1,57 @@
 """Memory extraction from a single message.
 
-Extends the LLM service's extract_memories, but adds the
-"already-known / duplicate / sensitive / temporary" checks
-and the fallback that runs the extractor locally only when
-the Gemini key is set.  When the key is missing the local
-hash_embedder hashes both the text and the extracted content
-so the rest of the pipeline (storage, retrieval, ranking)
-still works — but retrieved memories are flagged
-`retrieval_mode: "exact"`.
+Wraps the LLM service's extract_memories and adds the
+"already-known / sensitive / temporary" checks. When the Gemini key is unset
+the extractor falls back to a keyword-based classifier so the rest of the
+pipeline (storage, retrieval, ranking) still runs offline — and the replies
+are flagged accordingly by the chat layer.
 """
 
-import hashlib
-import json
 import re
 
 from app.core.config import get_settings
 from app.core.logging import logger
-from app.schemas.common import MemoryType, MemoryStatus, FeedbackRating
-from app.schemas.memory import MemoryOut, RetrievedMemory
-from app.services.embedding_service import embed, _parse_json, _EXTRACT_SYSTEM, extract_memories, EmbeddingError
+from app.services.llm_service import extract_memories, detect_intent
 
-_KNOWN_RE = re.compile(r"\b(?:same|already|same fact|same preference|same experience|again)\b", re.I)
 _SENSITIVE_RE = re.compile(
-    r"(?:password|api.key|secret|token|credential|auth)\s*[:=]\s*[^\s]{5,}",
+    r"(?:password|api\.key|secret|token|credential)\s*[:=]\s*[^\s]{5,}",
+    re.I,
+)
+
+# Messages that only ever ask for something are NOT memories. Correction
+# markers re-enable extraction ("actually I now prefer evening…").
+_REQUEST_INTENTS = {"plan", "explain", "recommend", "forget"}
+_CORRECTION_RE = re.compile(
+    r"\b(?:actually|instead|no longer|changed my mind|update|correction)\b",
     re.I,
 )
 
 
-def _is_sensitive(content: str) -> bool:
+def is_storable(message: str) -> bool:
+    """Gate extraction: plans/questions/suggestions aren't memories, but
+    corrections and first-person statements are."""
+    intent = detect_intent(message)
+    if intent in _REQUEST_INTENTS:
+        return bool(_CORRECTION_RE.search(message))
+    return True
+
+
+def is_sensitive(content: str) -> bool:
     """Heuristic: reject passwords, API keys, tokens from storage."""
     return bool(_SENSITIVE_RE.search(content))
 
 
-def _has_conflict_with_known(content: str, known_contents: list[str]) -> bool:
-    """Very simple token‑overlap check — only used when no API key is set."""
+_CORRECTION_HINT_RE = re.compile(r"\b(?:now|changed my mind|actually|instead)\b")
+
+
+def _has_duplicate(content: str, known_contents: list[str]) -> bool:
+    """Very simple token-overlap check — only used when no key is set."""
     if not known_contents:
         return False
     c = set(re.findall(r"[a-z0-9]{3,}", content.lower()))
     for known in known_contents:
         k = set(re.findall(r"[a-z0-9]{3,}", known.lower()))
-        if c & k >= 3:   # 3+ shared tokens = likely duplicate
+        if len(c & k) >= 3:  # 3+ shared tokens = likely duplicate
             return True
     return False
 
@@ -51,16 +63,26 @@ def _classify_content(content: str) -> dict | None:
     if not c:
         return None
 
-    # very lightweight keyword‑based classifier
-    if any(k in c for k in ["i prefer", "i like", "my favorite", "i tend to"]):
+    # very lightweight keyword-based classifier
+    if _CORRECTION_HINT_RE.search(c) and any(k in c for k in ["prefer", "session", "morning", "evening", "night"]):
         return {
             "type": "PREFERENCE",
             "content": content.strip(),
-            "importance": 0.7,
+            "importance": 0.8,
+            "confidence": 0.8,
+            "context": None,
+            "expires_at": None,
+            "reason": "keyword-based extraction of an updated preference (no Gemini)",
+        }
+    if any(k in c for k in ["i prefer", "i like", "my favorite", "i tend to", "i study best"]):
+        return {
+            "type": "PREFERENCE",
+            "content": content.strip(),
+            "importance": 0.8,
             "confidence": 0.85,
             "context": None,
             "expires_at": None,
-            "reason": "keyword‑based extraction (no Gemini)",
+            "reason": "keyword-based extraction (no Gemini)",
         }
     if any(k in c for k in ["my goal", "i want to", "i'm aiming", "i aim to"]):
         return {
@@ -70,7 +92,7 @@ def _classify_content(content: str) -> dict | None:
             "confidence": 0.9,
             "context": None,
             "expires_at": None,
-            "reason": "keyword‑based extraction (no Gemini)",
+            "reason": "keyword-based extraction (no Gemini)",
         }
     if any(k in c for k in ["i am learning", "i studied", "i experienced", "i tried"]):
         return {
@@ -80,7 +102,7 @@ def _classify_content(content: str) -> dict | None:
             "confidence": 0.75,
             "context": None,
             "expires_at": None,
-            "reason": "keyword‑based extraction (no Gemini)",
+            "reason": "keyword-based extraction (no Gemini)",
         }
     if any(k in c for k in ["i need", "constraint", "requirement", "i must"]):
         return {
@@ -90,7 +112,7 @@ def _classify_content(content: str) -> dict | None:
             "confidence": 0.8,
             "context": None,
             "expires_at": None,
-            "reason": "keyword‑based extraction (no Gemini)",
+            "reason": "keyword-based extraction (no Gemini)",
         }
     # fallback: treat as a FACT (stable personal info)
     return {
@@ -100,75 +122,65 @@ def _classify_content(content: str) -> dict | None:
         "confidence": 0.7,
         "context": None,
         "expires_at": None,
-        "reason": "keyword‑based extraction (no Gemini)",
+        "reason": "keyword-based extraction (no Gemini)",
     }
 
 
-def _must_ask_user(content: str) -> bool:
-    """Prompt user when the model can't decide whether to supersede or keep
-    a memory (e.g. two preferences that look equally valid)."""
-    return (
-        "maybe" in content.lower()
-        or "both" in content.lower()
-        or "either" in content.lower()
+def _should_ask_user(message: str) -> bool:
+    """Prompt user when the message sounds equivocal (two preferences that
+    look equally valid) — conservative default."""
+    lowered = message.lower()
+    return bool(
+        re.search(r"\b(?:maybe|not sure|either|perhaps)\b", lowered)
+        or "keep both" in lowered
     )
 
 
-def extract(message: str, known_contents: list[str]) -> tuple[
-    list[dict] | None,
-    bool,
-]:
+async def extract(message: str, known_contents: list[str]) -> tuple[list[dict], bool]:
     """Return (memories, ask_user).
 
-    - memories: list of dicts the caller may persist, or None when no API key.
-    - ask_user: True when the model couldn't decide and should prompt.
+    memories: list of dicts the caller may persist.
+    ask_user: True when the caller should offer the user a choice.
     """
 
     if not get_settings().llm_enabled:
-        # No Gemini key → try keyword‑based fallback, then deterministic hasher.
+        # No Gemini key → keyword-based fallback keeps the pipeline alive.
         result = _classify_content(message)
-        if result is None:
+        if result is None or is_sensitive(result["content"]):
             return [], False
-        # check duplicate / sensitive
-        if _is_sensitive(result["content"]):
-            logger.warning("Attempted to store sensitive info, skipping.")
-            return [], False
-        if _has_conflict_with_known(result["content"], known_contents):
+        if _has_duplicate(result["content"], known_contents):
             logger.info("Duplicate known memory, skipping.")
             return [], False
-        return [result], False
+        return [result], _should_ask_user(message)
 
-    # Gemini path
-    try:
-        llm_memories = extract_memories(message, known_contents)
-    except (EmbeddingError, LLMError) as exc:
-        logger.error("LLM extraction failed: %s", exc)
-        # fall back to keyword‑based synthetic
+    if not is_storable(message):
+        logger.info("Message is a request/correction target, not stored: intent gate")
+        return [], False
+
+    llm_memories = await extract_memories(message, known_contents)
+    if llm_memories is None:
+        # LLM unavailable → keyword fallback so the demo still stores something.
         result = _classify_content(message)
-        if result is None:
+        if result is None or is_sensitive(result["content"]):
             return [], False
-        if _is_sensitive(result["content"]):
-            logger.warning("Sensitive info bypassed due to LLM failure.")
-            return [], False
-        return [result], False
+        return [result], _should_ask_user(message)
 
-    # strip any that are too low‑confidence or sensitive
     clean: list[dict] = []
     for m in llm_memories:
+        if not isinstance(m, dict):
+            continue
         # ignore empty / null content
-        if not m.get("content") or not m["content"].strip():
+        content = m.get("content")
+        if not content or not str(content).strip():
             continue
         # never store sensitive info automatically
-        if _is_sensitive(m["content"]):
-            logger.warning(
-                "Extracted memory marked sensitive, suppressing automatically."
-            )
+        if is_sensitive(str(content)):
+            logger.warning("Extracted memory marked sensitive, suppressing automatically.")
             continue
-        # normalise the dict keys that the rest of the pipeline expects
         clean.append(
             {
-                "type": m["type"],
-                "content": m["content"],
+                "type": m.get("type", "FACT"),
+                "content": str(content).strip(),
                 "importance": float(m.get("importance", 0.7)),
                 "confidence": float(m.get("confidence", 0.8)),
                 "context": m.get("context"),
@@ -177,5 +189,4 @@ def extract(message: str, known_contents: list[str]) -> tuple[
             }
         )
 
-    ask = _must_ask_user(message)
-    return clean, ask
+    return clean, _should_ask_user(message)

@@ -7,6 +7,9 @@ from app.schemas.memory import MemoryOut, RetrievedMemory
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     conversation_id: str | None = None
+    # Demo toggle: False runs the same request with memory OFF so the UI can
+    # show how recall changes the answer.
+    use_memory: bool = True
 
 
 class MemoryChange(BaseModel):

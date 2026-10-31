@@ -24,7 +24,7 @@ Embed the message         (embedding_service)
 Vector search             (memory_retriever)   ── MongoDB Atlas $vectorSearch
     │                                              filter: user_id, status=active
     ▼
-Rank + filter             (memory_ranker)
+Rank + filter             (memory_retriever)
     │  score = 0.50·similarity + 0.20·importance
     │        + 0.15·confidence + 0.15·recency
     ▼
@@ -81,10 +81,10 @@ Insert / update / expire  (memory_manager)   ── MongoDB
 }
 ```
 
-`status` is `active`, `superseded`, or `deleted`. Deleted memories are removed
-from `memories` entirely; their history row in `memory_history` is what the
-"deleted history" view reads. Superseded memories stay so the timeline can show
-the evolution.
+`status` is `active`, `superseded`, or `deleted`. A forget action marks the
+memory `deleted`, excludes it from every recall path, and appends an audit row
+to `memory_history`. Superseded memories stay so the timeline can show the
+evolution.
 
 `expires_at` is `null` for permanent memories. A TTL index on `expires_at`
 removes temporary memories automatically. MongoDB's TTL monitor runs about once
@@ -98,8 +98,7 @@ Created automatically by `scripts/create_indexes.py` and on backend startup:
   `(user_id, status)`, `(user_id, memory_type)`, `(user_id, created_at)`.
 - `messages`, `conversations`, `feedback`, `memory_history`: user-scoped lookups.
 
-Created **manually in Atlas** (Vector Search indexes cannot be built with
-PyMongo):
+Created in Atlas before judging:
 
 - `memories_vector` on `memories.embedding`, 768 dimensions, cosine, with
   `user_id`, `memory_type`, and `status` as filter fields.
@@ -107,8 +106,8 @@ PyMongo):
 ## Retrieval fallback
 
 If the Atlas vector index is not built yet, retrieval falls back to an exact
-cosine scan over the user's own memories. Results are identical, only slower,
-and the response is flagged `retrieval_mode: "exact"` so the UI can say so.
+cosine scan over the user's own memories. Ranking may differ from approximate
+vector search, and the response is flagged `retrieval_mode: "exact"` so the UI can say so.
 User isolation is enforced in both paths: the filter always includes `user_id`.
 
 ## Embeddings without an API key

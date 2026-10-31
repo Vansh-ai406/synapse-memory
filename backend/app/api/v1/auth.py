@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.schemas.auth import RegisterRequest, LoginRequest, AuthResponse, UserOut
 from app.core.config import get_settings
 from app.core.security import hash_password, verify_password, create_token, get_current_user_id
-from app.database.mongodb import users
+from app.database.mongodb import oid, users
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -56,7 +56,7 @@ async def me(current_user_id: str = Depends(get_current_user_id)):
     # Re‑fetch from DB so we always have the latest flags etc.
     from app.database.mongodb import users as _users
     db = _users()
-    u = await db.find_one({"_id": current_user_id})
+    u = await db.find_one({"_id": oid(current_user_id)})
     if not u:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
     return UserOut(

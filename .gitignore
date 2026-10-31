@@ -14,4 +14,26 @@
 .mypy_cache/
 .ruff_cache/
 .coverage
+**/node_modules/
+**/dist/
+tmp/
+*.log
+*.tsbuildinfo
 htmlcov/
+
+# Local agent/runtime material and duplicate reference checkouts.
+.agents/
+.codex/
+.opencode/
+.antigravity/
+RecallOS-workflow/
+memory-kit/
+skills-lock.json
+
+AGENTS.md
+CODEX_BOOTSTRAP.md
+./memory-kit\memory-kit
+setup.sh
+
+
+.env

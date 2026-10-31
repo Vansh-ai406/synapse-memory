@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from pydantic import BaseModel, Field
 
 from app.schemas.common import MemoryStatus, MemoryType
@@ -48,10 +47,10 @@ class MemoryOut(BaseModel):
     is_sensitive: bool
     reason: str | None
     source: dict
-    created_at: str | None
-    updated_at: str | None
-    last_accessed_at: str | None
-    expires_at: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
+    last_accessed_at: datetime | None
+    expires_at: datetime | None
     access_count: int
     superseded_by: str | None
     supersedes: str | None
@@ -62,3 +61,4 @@ class RetrievedMemory(BaseModel):
     similarity: float
     score: float
     why: str
+    path: str = "vector"  # vector | always-load | exact-scan

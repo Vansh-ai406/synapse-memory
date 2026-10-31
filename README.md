@@ -4,47 +4,61 @@
 
 ---
 
-## 🌟 Overview
-**SynapseMemory** is an enterprise-grade Autonomous Developer & SRE Copilot that maintains persistent memory across interactions, sessions, and multi-agent workflows. It intelligently extracts durable rules, architectural constraints, and incident fixes, semantically indexes them with vector embeddings, detects and resolves contradictions, and leverages MongoDB TTL indexes for auto-expiring ephemeral context.
+## 🌟 Executive Summary
+**SynapseMemory** is an enterprise-grade Autonomous Developer & SRE Platform powered by MongoDB Atlas Agentic Memory. It enables software teams and autonomous agents to persist, recall, harmonize, and decay operational memories across interactions and sessions. 
+
+Rather than a basic chatbot, SynapseMemory implements **3 Specialized Autonomous Agents** (Systems Architect, Security Officer, Principal SRE), an **Interactive Force-Directed Knowledge Graph**, an **Ebbinghaus Memory Decay Engine**, an **Agentic PR Code Review Guard**, and an **Autonomous SRE Incident Self-Healing Simulator**.
 
 ---
 
 ## 🚀 Key MongoDB Technologies Showcased
 
 1. **Rich Document Modeling & Lifecycle Management**
-   - Each memory is stored as a rich document with `owner`, `workspaceId`, `type` (`constraint`, `incident_fix`, `decision`, `preference`, `fact`), `lifecycle` state (`active`, `superseded`, `expired`), confidence score, and access frequency counters.
+   - Each memory is modeled with `owner`, `workspaceId`, `type` (`constraint`, `incident_fix`, `decision`, `preference`, `fact`), `lifecycle` state (`active`, `superseded`, `expired`), confidence score, and access frequency counters.
 2. **MongoDB Atlas Vector Search (`$vectorSearch`)**
-   - Recalls relevant memories using high-dimensional embeddings (Gemini 768-dim / OpenAI 1536-dim) combined with strict metadata pre-filtering (`workspaceId`, `lifecycle.status: "active"`).
+   - Recalls relevant memories using high-dimensional embeddings (768-dim normalized vectors) combined with strict metadata pre-filtering (`workspaceId`, `lifecycle.status: "active"`).
 3. **MongoDB TTL Indexes (`expireAfterSeconds`)**
-   - Automatically expires ephemeral memories (e.g. temporary incident war-room tokens, debug bypass keys) directly at the database engine level via index `{ expiresAt: 1 }`.
+   - Ephemeral memories (e.g. temporary incident war-room tokens, staging bypass keys) automatically purge at the database engine level via index `{ expiresAt: 1 }` with `{ expireAfterSeconds: 0 }`.
 4. **MongoDB Change Streams (`collection.watch()`)**
-   - Pushes real-time SSE updates to the dashboard as soon as any agent creates, updates, or supersedes memories across sessions.
+   - Real-time Server-Sent Events (SSE) push live database mutations to connected clients as soon as memories are indexed, updated, or superseded.
+5. **MongoDB Aggregation Framework for Memory Decay**
+   - Utilizes mathematical operators (`$exp`, `$ln`, `$dateDiff`, `$facet`) to calculate **Ebbinghaus Memory Retention Curves** based on time elapsed ($\Delta t$) and spaced-repetition recall frequency ($N$).
 
 ---
 
-## 🎯 4-Step Hackathon Demo Walkthrough (For Judges)
+## 🎯 The 5 Core Platform Modules
 
-### Step 1: Useful Memory Creation (Session 1)
-- **Action:** In Session 1, instruct the agent:
-  > *"Our team strictly enforces Node.js TypeScript with MongoDB native driver, no Mongoose, and all collections must have schema validation."*
-- **Result:** SynapseMemory identifies this as a durable `constraint`, calculates its vector embedding, and stores it in the `memories` collection.
+### 1. 💬 Interactive Copilot (Multi-Session Continuity)
+- Demonstrates persistent memory across separate sessions (Session 1 $\to$ Session 2).
+- Automatically retrieves team constraints and past incident fixes to write compliant database code.
+- Detects semantic contradictions (e.g., migrating from native driver to Prisma), marks outdated rules as `superseded`, and records the audit trail.
 
-### Step 2: Behavioral Shift in Subsequent Session (Session 2)
-- **Action:** Switch the session selector to **Session 2 (Feature Development)** and ask:
-  > *"Write a database connection and user lookup function for our new API."*
-- **Result:** The agent retrieves the stored constraint via MongoDB Vector Search and automatically generates code using the official native driver with schema validation—without being reminded!
+### 2. 🤖 Multi-Agent Consensus Room (`/api/multi-agent`)
+- **Archi (Architect):** Enforces driver standards, schema validation, and stack guidelines.
+- **Aegis (Security):** Mandates TLS 1.3, zero-trust network boundaries, and ephemeral credential TTLs.
+- **Sentinel (SRE):** Recalls historical outage post-mortems (**Incident INC-402**) and enforces connection pool limits (`maxPoolSize: 50`).
+- Agents negotiate simultaneously against shared MongoDB memory and produce a unified action plan with a **Consensus Score**.
 
-### Step 3: Inspect Stored Memory & Explain Selection
-- **Action:** Click the **Inspect** eye icon or click the **Recalled Memories** pill in the chat message.
-- **Result:** The **Explainability Inspector** opens, showing the exact cosine similarity score, matching metadata filters, and raw MongoDB document.
+### 3. 🔍 Agentic PR Code Review Guard (`/api/simulator/review`)
+- Evaluates code diffs in pull requests against team memories.
+- Flags violations (e.g. attempting to import Mongoose, missing connection pool parameters, or disabling TLS) with inline line annotations and citations of the exact violated memory document.
+- One-click auto-generation of memory-compliant replacement code.
 
-### Step 4: Difficult Cases (Contradiction / Conflict & TTL Expiry)
-- **Case A: Contradiction / Conflict Resolution**
-  - Say: *"We have updated our team policy: we are migrating to Prisma ORM for all new services."*
-  - SynapseMemory detects the semantic conflict with the previous rule, marks the old rule as `status: "superseded"`, and updates the active constraint.
-- **Case B: Ephemeral TTL Auto-Expiry**
-  - Say: *"Active war-room auth token: WAR-ROOM-9921. Expire this temporary memory in 60 seconds."*
-  - Memory is created with `expiresAt`. Watch the live TTL countdown tick down until MongoDB automatically purges it!
+### 4. 🚨 SRE Adaptive Incident Self-Healing (`/api/simulator/incident`)
+- Simulates a P1 production crisis: *MongoDB Connection Pool Exhaustion under Traffic Spike*.
+- Autonomous Agent queries MongoDB vector store $\to$ identifies runbook **INC-402** $\to$ applies dynamic pool resize $\to$ drops latency from 4,320ms to 12ms.
+- Closes the learning loop by automatically indexing a new episodic incident resolution document into MongoDB!
+
+### 5. 📉 Ebbinghaus Memory Decay Engine (`/api/memories/decay`)
+- Implements exponential memory retention:
+  $$\text{Retention} = \exp\left(-\frac{\Delta t}{\tau \cdot (1 + \ln(1 + N))}\right)$$
+- Displays bank health telemetry, high-retention memories, and decaying memories.
+- Spaced-repetition reinforcement button boosts memory strength upon recall.
+
+### 6. 🕸️ Interactive 2D Force-Directed Knowledge Graph
+- 60fps HTML5 Canvas physics engine visualizing memories as interconnected nodes.
+- Shows relationships: `indexes`, `enforces`, and `superseded_by` (dashed red links).
+- Interactive drag physics, hover tooltips, and click-to-inspect deep explainability modal.
 
 ---
 
@@ -61,11 +75,11 @@ MONGODB_URI=mongodb://127.0.0.1:27017/synapse_memory
 # Or your MongoDB Atlas connection string:
 # MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/synapse_memory
 
-# Optional LLM Key (Gemini or OpenAI)
+# Optional LLM Key (Google Gemini or OpenAI)
 GEMINI_API_KEY=your_gemini_key_here
 ```
 
-### 3. Initialize Indexes
+### 3. Initialize MongoDB Indexes
 ```bash
 npm run setup:db
 ```
@@ -78,32 +92,46 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 📂 Project Structure
+## 📂 Repository Architecture
 ```
 ├── src/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── chat/route.ts          # Memory-informed LLM reasoning & extraction
-│   │   │   ├── memories/route.ts      # CRUD endpoints for memory collection
-│   │   │   ├── memories/stream/route.ts # MongoDB Change Stream (SSE)
-│   │   │   └── scenarios/seed/route.ts # 1-click hackathon rubric demo seed
-│   │   ├── globals.css                # Dark theme & MongoDB styling
-│   │   ├── layout.tsx                 # Root layout
-│   │   └── page.tsx                   # Main dual-pane dashboard
+│   │   │   ├── chat/route.ts                # Memory-informed LLM reasoning & extraction
+│   │   │   ├── memories/route.ts            # CRUD operations for memory collection
+│   │   │   ├── memories/decay/route.ts      # Ebbinghaus decay analytics & reinforcement
+│   │   │   ├── memories/stream/route.ts     # MongoDB Change Stream (SSE)
+│   │   │   ├── multi-agent/route.ts         # Multi-agent shared memory deliberation
+│   │   │   ├── scenarios/seed/route.ts      # 1-click hackathon rubric demo seed
+│   │   │   ├── simulator/incident/route.ts  # Autonomous SRE self-healing
+│   │   │   └── simulator/review/route.ts    # PR code review against constraints
+│   │   ├── globals.css                      # Modern dark theme & glow animations
+│   │   ├── layout.tsx                       # Root layout & metadata
+│   │   └── page.tsx                         # Multi-tab dashboard controller
 │   ├── components/
-│   │   ├── Header.tsx                 # Status pills (Change Stream, Vector Search)
-│   │   ├── ChatPlayground.tsx         # Multi-session chat & memory attribution
-│   │   ├── MemoryExplorer.tsx         # Real-time memory bank with TTL countdown
-│   │   └── ExplainabilityModal.tsx    # Semantic search inspector & raw JSON viewer
+│   │   ├── Header.tsx                       # Mode switcher & live status pills
+│   │   ├── ChatPlayground.tsx               # Multi-session copilot & memory citations
+│   │   ├── MemoryExplorer.tsx               # Memory bank list & view mode toggle
+│   │   ├── MemoryGraphCanvas.tsx            # Force-directed 2D Knowledge Graph
+│   │   ├── MultiAgentView.tsx               # 3-agent deliberation room
+│   │   ├── CodeReviewerView.tsx             # PR code guard with inline annotations
+│   │   ├── IncidentSimulatorView.tsx        # Outage telemetry & autonomous runbook execution
+│   │   ├── MemoryDecayView.tsx              # Ebbinghaus retention curves & gauges
+│   │   └── ExplainabilityModal.tsx          # Cosine similarity breakdown & raw JSON
 │   ├── lib/
-│   │   ├── mongodb.ts                 # Connection pool & client management
-│   │   ├── ai.ts                      # Vector embeddings & LLM completion
-│   │   ├── memory-service.ts          # Storage, vector recall, conflict resolution
-│   │   └── utils.ts                   # Formatting & styling utilities
+│   │   ├── mongodb.ts                       # Connection pooling & client management
+│   │   ├── ai.ts                            # Embeddings, extraction & response generation
+│   │   ├── memory-service.ts                # Storage, vector recall & conflict resolution
+│   │   ├── decay-service.ts                 # Aggregation pipeline decay engine
+│   │   ├── multi-agent-orchestrator.ts      # Multi-agent coordination logic
+│   │   └── simulator-service.ts             # Code review & incident self-healing service
 │   └── types/
-│       └── memory.ts                  # TypeScript types for memory documents
+│       ├── memory.ts                        # Memory document schemas & lifecycle types
+│       ├── agent.ts                         # Agent profiles, turns & decay metrics
+│       └── simulator.ts                     # PR reviews & incident remediation types
 ├── scripts/
-│   └── setup-db.js                    # MongoDB TTL & Compound Index initialization
+│   └── setup-db.js                          # MongoDB TTL & Compound Index initialization
+├── Dockerfile                               # Production container image
+├── docker-compose.yml                       # Multi-container orchestration
 └── package.json
 ```
-

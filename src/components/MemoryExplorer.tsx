@@ -13,9 +13,12 @@ import {
   ArrowRight,
   PlusCircle,
   X,
+  Network,
+  LayoutGrid,
 } from 'lucide-react';
-import { MemoryDocument, MemoryStatus, MemoryType, RetrievedMemory } from '@/types/memory';
+import { MemoryDocument, MemoryType, RetrievedMemory } from '@/types/memory';
 import { formatTimeAgo } from '@/lib/utils';
+import MemoryGraphCanvas from './MemoryGraphCanvas';
 
 interface MemoryExplorerProps {
   memories: MemoryDocument[];
@@ -32,6 +35,7 @@ export default function MemoryExplorer({
   onAddManual,
   lastUpdatedId,
 }: MemoryExplorerProps) {
+  const [viewMode, setViewMode] = useState<'cards' | 'graph'>('cards');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,172 +87,211 @@ export default function MemoryExplorer({
           </div>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-950 text-[#00ed64] border border-emerald-500/30 hover:bg-emerald-900/50 transition active:scale-95"
-        >
-          <PlusCircle className="w-3.5 h-3.5" />
-          <span>New Memory</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <div className="flex items-center p-0.5 rounded-lg bg-[#002738] border border-emerald-950">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`p-1.5 rounded-md transition ${
+                viewMode === 'cards'
+                  ? 'bg-emerald-950 text-[#00ed64] shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Card View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('graph')}
+              className={`p-1.5 rounded-md transition ${
+                viewMode === 'graph'
+                  ? 'bg-emerald-950 text-[#00ed64] shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Knowledge Graph Visualizer"
+            >
+              <Network className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-950 text-[#00ed64] border border-emerald-500/30 hover:bg-emerald-900/50 transition active:scale-95"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">New</span>
+          </button>
+        </div>
       </div>
 
-      {/* Search & Filters */}
-      <div className="p-3 bg-[#00141d] border-b border-emerald-950/50 space-y-2">
-        <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search stored memories or tags..."
-            className="w-full bg-[#002433] text-xs text-white pl-8 pr-3 py-2 rounded-lg border border-emerald-950 focus:outline-none focus:border-[#00ed64] placeholder:text-slate-500"
+      {/* Main View Area */}
+      {viewMode === 'graph' ? (
+        <div className="flex-1 p-3">
+          <MemoryGraphCanvas
+            memories={memories}
+            onInspectNode={onInspect}
+            lastUpdatedId={lastUpdatedId}
           />
         </div>
+      ) : (
+        <>
+          {/* Search & Filters */}
+          <div className="p-3 bg-[#00141d] border-b border-emerald-950/50 space-y-2">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search stored memories or tags..."
+                className="w-full bg-[#002433] text-xs text-white pl-8 pr-3 py-2 rounded-lg border border-emerald-950 focus:outline-none focus:border-[#00ed64] placeholder:text-slate-500"
+              />
+            </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
-          <Filter className="w-3 h-3 text-slate-400 flex-shrink-0" />
-          {/* Status selector */}
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="bg-[#002433] text-[11px] text-slate-300 border border-emerald-950 rounded px-2 py-1 focus:outline-none focus:border-[#00ed64]"
-          >
-            <option value="all">Status: All</option>
-            <option value="active">Active</option>
-            <option value="superseded">Superseded</option>
-            <option value="expired">Expired</option>
-          </select>
-
-          {/* Type selector */}
-          <select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className="bg-[#002433] text-[11px] text-slate-300 border border-emerald-950 rounded px-2 py-1 focus:outline-none focus:border-[#00ed64]"
-          >
-            <option value="all">Type: All</option>
-            <option value="constraint">Constraint</option>
-            <option value="incident_fix">Incident Fix</option>
-            <option value="decision">Decision</option>
-            <option value="preference">Preference</option>
-            <option value="fact">Fact</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Memory Cards Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {filtered.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
-            <Layers className="w-8 h-8 stroke-1 text-slate-600 mb-2" />
-            <p className="text-xs">No memories matching current filters</p>
-          </div>
-        ) : (
-          filtered.map((m) => {
-            const ttlText = getTtlRemaining(m.expiresAt);
-            const isJustUpdated = lastUpdatedId === m._id;
-
-            return (
-              <div
-                key={m._id}
-                className={`rounded-xl p-3.5 border text-xs space-y-2.5 transition relative overflow-hidden ${
-                  isJustUpdated
-                    ? 'ring-2 ring-[#00ed64] bg-[#002b3d]'
-                    : m.lifecycle.status === 'superseded'
-                    ? 'bg-[#001b24] border-amber-900/40 opacity-75'
-                    : 'bg-[#00212e] border-emerald-950 hover:border-emerald-800/80 shadow-sm'
-                }`}
+            <div className="flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
+              <Filter className="w-3 h-3 text-slate-400 flex-shrink-0" />
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="bg-[#002433] text-[11px] text-slate-300 border border-emerald-950 rounded px-2 py-1 focus:outline-none focus:border-[#00ed64]"
               >
-                {/* Top Row: Type, Status, Actions */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
-                        m.type === 'constraint'
-                          ? 'bg-rose-950 text-rose-300 border border-rose-800/40'
-                          : m.type === 'incident_fix'
-                          ? 'bg-amber-950 text-amber-300 border border-amber-800/40'
-                          : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
-                      }`}
-                    >
-                      {m.type}
-                    </span>
+                <option value="all">Status: All</option>
+                <option value="active">Active</option>
+                <option value="superseded">Superseded</option>
+                <option value="expired">Expired</option>
+              </select>
 
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${
-                        m.lifecycle.status === 'active'
-                          ? 'bg-emerald-950 text-[#00ed64] border border-emerald-500/30'
-                          : m.lifecycle.status === 'superseded'
-                          ? 'bg-amber-950 text-amber-400 border border-amber-500/30'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700'
-                      }`}
-                    >
-                      {m.lifecycle.status}
-                    </span>
-                  </div>
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="bg-[#002433] text-[11px] text-slate-300 border border-emerald-950 rounded px-2 py-1 focus:outline-none focus:border-[#00ed64]"
+              >
+                <option value="all">Type: All</option>
+                <option value="constraint">Constraint</option>
+                <option value="incident_fix">Incident Fix</option>
+                <option value="decision">Decision</option>
+                <option value="preference">Preference</option>
+                <option value="fact">Fact</option>
+              </select>
+            </div>
+          </div>
 
-                  <div className="flex items-center gap-1 text-slate-400">
-                    <button
-                      onClick={() => onInspect(m as RetrievedMemory)}
-                      className="p-1 hover:text-emerald-400 rounded hover:bg-[#002f42] transition"
-                      title="Inspect Vector Search & Explainability"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => m._id && onDelete(m._id)}
-                      className="p-1 hover:text-rose-400 rounded hover:bg-[#002f42] transition"
-                      title="Delete from MongoDB"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
+          {/* Cards Feed */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {filtered.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
+                <Layers className="w-8 h-8 stroke-1 text-slate-600 mb-2" />
+                <p className="text-xs">No memories matching current filters</p>
+              </div>
+            ) : (
+              filtered.map((m) => {
+                const ttlText = getTtlRemaining(m.expiresAt);
+                const isJustUpdated = lastUpdatedId === m._id;
 
-                {/* Title & Content */}
-                <div>
-                  <h4 className="font-semibold text-slate-100 text-xs leading-snug">
-                    {m.title}
-                  </h4>
-                  <p className="text-slate-300 text-[11px] mt-1 leading-relaxed line-clamp-3">
-                    {m.content}
-                  </p>
-                </div>
+                return (
+                  <div
+                    key={m._id}
+                    className={`rounded-xl p-3.5 border text-xs space-y-2.5 transition relative overflow-hidden ${
+                      isJustUpdated
+                        ? 'ring-2 ring-[#00ed64] bg-[#002b3d]'
+                        : m.lifecycle.status === 'superseded'
+                        ? 'bg-[#001b24] border-rose-900/40 opacity-75'
+                        : 'bg-[#00212e] border-emerald-950 hover:border-emerald-800/80 shadow-sm'
+                    }`}
+                  >
+                    {/* Top Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
+                            m.type === 'constraint'
+                              ? 'bg-rose-950 text-rose-300 border border-rose-800/40'
+                              : m.type === 'incident_fix'
+                              ? 'bg-amber-950 text-amber-300 border border-amber-800/40'
+                              : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
+                          }`}
+                        >
+                          {m.type}
+                        </span>
 
-                {/* Superseded Reason / Conflict trail */}
-                {m.lifecycle.status === 'superseded' && (
-                  <div className="p-2 rounded bg-amber-950/40 border border-amber-800/30 text-[10px] text-amber-300 flex items-start gap-1.5">
-                    <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${
+                            m.lifecycle.status === 'active'
+                              ? 'bg-emerald-950 text-[#00ed64] border border-emerald-500/30'
+                              : m.lifecycle.status === 'superseded'
+                              ? 'bg-rose-950 text-rose-400 border border-rose-500/30'
+                              : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          }`}
+                        >
+                          {m.lifecycle.status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-slate-400">
+                        <button
+                          onClick={() => onInspect(m as RetrievedMemory)}
+                          className="p-1 hover:text-emerald-400 rounded hover:bg-[#002f42] transition"
+                          title="Inspect Vector Search & Explainability"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => m._id && onDelete(m._id)}
+                          className="p-1 hover:text-rose-400 rounded hover:bg-[#002f42] transition"
+                          title="Delete from MongoDB"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Title & Content */}
                     <div>
-                      <span>{m.lifecycle.supersededReason || 'Superseded by newer decision'}</span>
+                      <h4 className="font-semibold text-slate-100 text-xs leading-snug">
+                        {m.title}
+                      </h4>
+                      <p className="text-slate-300 text-[11px] mt-1 leading-relaxed line-clamp-3">
+                        {m.content}
+                      </p>
+                    </div>
+
+                    {/* Superseded Reason */}
+                    {m.lifecycle.status === 'superseded' && (
+                      <div className="p-2 rounded bg-rose-950/40 border border-rose-800/30 text-[10px] text-rose-300 flex items-start gap-1.5">
+                        <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <span>{m.lifecycle.supersededReason || 'Superseded by newer decision'}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TTL Live Countdown */}
+                    {ttlText && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-purple-300 font-mono bg-purple-950/40 border border-purple-800/40 px-2 py-1 rounded">
+                        <Clock className="w-3 h-3 text-purple-400 animate-pulse" />
+                        <span>TTL Auto-Expiry: <strong>{ttlText}</strong></span>
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="pt-1.5 border-t border-emerald-950/60 flex items-center justify-between text-[10px] text-slate-400">
+                      <div className="flex items-center gap-2">
+                        <span>Recalled: <strong>{m.lifecycle.accessCount}x</strong></span>
+                        <span>•</span>
+                        <span>{formatTimeAgo(m.updatedAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Shield className="w-3 h-3 text-slate-500" />
+                        <span className="capitalize">{m.privacy}</span>
+                      </div>
                     </div>
                   </div>
-                )}
-
-                {/* TTL Live Countdown */}
-                {ttlText && (
-                  <div className="flex items-center gap-1.5 text-[10px] text-purple-300 font-mono bg-purple-950/40 border border-purple-800/40 px-2 py-1 rounded">
-                    <Clock className="w-3 h-3 text-purple-400 animate-pulse" />
-                    <span>TTL Auto-Expiry: <strong>{ttlText}</strong></span>
-                  </div>
-                )}
-
-                {/* Footer Metadata */}
-                <div className="pt-1.5 border-t border-emerald-950/60 flex items-center justify-between text-[10px] text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <span>Recalled: <strong>{m.lifecycle.accessCount}x</strong></span>
-                    <span>•</span>
-                    <span>{formatTimeAgo(m.updatedAt)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Shield className="w-3 h-3 text-slate-500" />
-                    <span className="capitalize">{m.privacy}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
 
       {/* Manual Memory Modal */}
       {showAddModal && (
@@ -373,4 +416,3 @@ function ManualAddMemoryModal({
     </div>
   );
 }
-

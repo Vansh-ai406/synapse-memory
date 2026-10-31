@@ -5,6 +5,25 @@ import { MemoryDocument, RetrievedMemory, MemoryType, MemoryStatus } from '@/typ
 
 const COLLECTION_NAME = 'memories';
 
+// In-memory fallback cache in case MongoDB is temporarily offline or connection string is pending
+const inMemoryStore: MemoryDocument[] = [];
+export const memoryEventBus = {
+  listeners: [] as Array<(event: any) => void>,
+  subscribe(fn: (event: any) => void) {
+    this.listeners.push(fn);
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== fn);
+    };
+  },
+  emit(event: any) {
+    this.listeners.forEach((fn) => {
+      try {
+        fn(event);
+      } catch {}
+    });
+  },
+};
+
 export interface StoreMemoryParams {
   workspaceId: string;
   userId: string;
@@ -31,9 +50,6 @@ export async function storeMemory(params: StoreMemoryParams): Promise<{
   memory: MemoryDocument;
   conflictedMemory?: MemoryDocument | null;
 }> {
-  const db = await getDb();
-  const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
-
   const embedding = await getEmbedding(`${params.title}: ${params.content}`);
   const now = new Date().toISOString();
 
@@ -43,20 +59,31 @@ export async function storeMemory(params: StoreMemoryParams): Promise<{
     expiresAt = new Date(Date.now() + params.ttlSeconds * 1000);
   }
 
-  // Check for potential contradictions with existing active memories
-  const existingActive = await collection
-    .find({
-      workspaceId: params.workspaceId,
-      'lifecycle.status': 'active',
-    })
-    .toArray();
+  let existingActive: MemoryDocument[] = [];
+  let isMongoActive = false;
+
+  try {
+    const db = await getDb();
+    const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+    existingActive = await collection
+      .find({
+        workspaceId: params.workspaceId,
+        'lifecycle.status': 'active',
+      })
+      .toArray();
+    isMongoActive = true;
+  } catch (err) {
+    console.warn('MongoDB connection pending or offline, using fallback store:', (err as any).message);
+    existingActive = inMemoryStore.filter(
+      (m) => m.workspaceId === params.workspaceId && m.lifecycle.status === 'active'
+    );
+  }
 
   let conflictedMemory: MemoryDocument | null = null;
 
   for (const existing of existingActive) {
     if (existing.embedding && existing.embedding.length > 0) {
       const sim = cosineSimilarity(embedding, existing.embedding);
-      // High topical similarity: check if this is an override/contradiction
       if (sim > 0.70) {
         const isContradiction = checkContradictionWords(existing.content, params.content);
         if (isContradiction) {
@@ -68,6 +95,7 @@ export async function storeMemory(params: StoreMemoryParams): Promise<{
   }
 
   const newDoc: MemoryDocument = {
+    _id: `mem-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
     workspaceId: params.workspaceId,
     userId: params.userId,
     agentId: params.agentId || 'copilot-v1',
@@ -94,28 +122,58 @@ export async function storeMemory(params: StoreMemoryParams): Promise<{
     updatedAt: now,
   };
 
-  const result = await collection.insertOne(newDoc as any);
-  newDoc._id = result.insertedId.toString();
+  if (isMongoActive) {
+    try {
+      const db = await getDb();
+      const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+      const { _id, ...insertPayload } = newDoc;
+      const result = await collection.insertOne(insertPayload as any);
+      newDoc._id = result.insertedId.toString();
 
-  // If a conflicted memory was found, mark it superseded
-  if (conflictedMemory && conflictedMemory._id) {
-    await collection.updateOne(
-      { _id: new ObjectId(conflictedMemory._id) as any },
-      {
-        $set: {
-          'lifecycle.status': 'superseded' as MemoryStatus,
-          'lifecycle.supersededBy': newDoc._id,
-          'lifecycle.supersededReason': `Replaced by updated constraint/rule: "${newDoc.title}"`,
-          updatedAt: now,
-        },
+      if (conflictedMemory && conflictedMemory._id) {
+        await collection.updateOne(
+          { _id: new ObjectId(conflictedMemory._id) as any },
+          {
+            $set: {
+              'lifecycle.status': 'superseded' as MemoryStatus,
+              'lifecycle.supersededBy': newDoc._id,
+              'lifecycle.supersededReason': `Replaced by updated constraint/rule: "${newDoc.title}"`,
+              updatedAt: now,
+            },
+          }
+        );
       }
-    );
+    } catch {
+      // In-memory fallback
+      saveToInMemory(newDoc, conflictedMemory, now);
+    }
+  } else {
+    saveToInMemory(newDoc, conflictedMemory, now);
   }
+
+  memoryEventBus.emit({
+    operationType: 'insert',
+    fullDocument: newDoc,
+    timestamp: now,
+  });
 
   return {
     memory: newDoc,
     conflictedMemory,
   };
+}
+
+function saveToInMemory(newDoc: MemoryDocument, conflictedMemory: MemoryDocument | null, now: string) {
+  inMemoryStore.unshift(newDoc);
+  if (conflictedMemory) {
+    const idx = inMemoryStore.findIndex((m) => m._id === conflictedMemory._id);
+    if (idx !== -1) {
+      inMemoryStore[idx].lifecycle.status = 'superseded';
+      inMemoryStore[idx].lifecycle.supersededBy = newDoc._id;
+      inMemoryStore[idx].lifecycle.supersededReason = `Replaced by updated constraint: "${newDoc.title}"`;
+      inMemoryStore[idx].updatedAt = now;
+    }
+  }
 }
 
 /**
@@ -164,91 +222,98 @@ export async function recallMemories(
   query: string,
   options: RecallOptions
 ): Promise<RetrievedMemory[]> {
-  const db = await getDb();
-  const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
   const queryVector = await getEmbedding(query);
   const limit = options.limit || 4;
   const minScore = options.minScore || 0.25;
 
   let retrieved: RetrievedMemory[] = [];
+  let candidateDocs: MemoryDocument[] = [];
 
-  // Attempt Atlas Vector Search aggregation
   try {
-    const vectorPipeline: any[] = [
-      {
-        $vectorSearch: {
-          index: 'vector_index',
-          path: 'embedding',
-          queryVector,
-          numCandidates: 50,
-          limit,
-          filter: {
-            workspaceId: options.workspaceId,
-            'lifecycle.status': 'active',
+    const db = await getDb();
+    const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+
+    // Attempt Atlas Vector Search aggregation
+    try {
+      const vectorPipeline: any[] = [
+        {
+          $vectorSearch: {
+            index: 'vector_index',
+            path: 'embedding',
+            queryVector,
+            numCandidates: 50,
+            limit,
+            filter: {
+              workspaceId: options.workspaceId,
+              'lifecycle.status': 'active',
+            },
           },
         },
-      },
-      {
-        $project: {
-          _id: 1,
-          workspaceId: 1,
-          userId: 1,
-          agentId: 1,
-          type: 1,
-          title: 1,
-          content: 1,
-          summary: 1,
-          tags: 1,
-          lifecycle: 1,
-          privacy: 1,
-          source: 1,
-          expiresAt: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          score: { $meta: 'vectorSearchScore' },
+        {
+          $project: {
+            _id: 1,
+            workspaceId: 1,
+            userId: 1,
+            agentId: 1,
+            type: 1,
+            title: 1,
+            content: 1,
+            summary: 1,
+            tags: 1,
+            lifecycle: 1,
+            privacy: 1,
+            source: 1,
+            expiresAt: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            score: { $meta: 'vectorSearchScore' },
+          },
         },
-      },
-    ];
+      ];
 
-    const results = await collection.aggregate(vectorPipeline).toArray();
-    if (results && results.length > 0) {
-      retrieved = results.map((r: any) => ({
-        ...r,
-        _id: r._id.toString(),
-        similarityScore: r.score,
-        retrievalReason: `Atlas Vector Search match (score: ${(r.score * 100).toFixed(1)}%)`,
-      }));
+      const results = await collection.aggregate(vectorPipeline).toArray();
+      if (results && results.length > 0) {
+        retrieved = results.map((r: any) => ({
+          ...r,
+          _id: r._id.toString(),
+          similarityScore: r.score,
+          retrievalReason: `Atlas Vector Search match (score: ${(r.score * 100).toFixed(1)}%)`,
+        }));
+      }
+    } catch {}
+
+    if (retrieved.length === 0) {
+      const filterQuery: any = {
+        workspaceId: options.workspaceId,
+        'lifecycle.status': 'active',
+      };
+      if (options.types && options.types.length > 0) {
+        filterQuery.type = { $in: options.types };
+      }
+      candidateDocs = await collection.find(filterQuery).toArray();
     }
   } catch (err) {
-    // Atlas Vector Search index might not be configured on this cluster yet; use local cosine fallback
+    // MongoDB offline: use in-memory store
+    purgeExpiredInMemory();
+    candidateDocs = inMemoryStore.filter(
+      (m) => m.workspaceId === options.workspaceId && m.lifecycle.status === 'active'
+    );
   }
 
-  // Fallback if vector search returned nothing or not supported locally
-  if (retrieved.length === 0) {
-    const filterQuery: any = {
-      workspaceId: options.workspaceId,
-      'lifecycle.status': 'active',
-    };
-    if (options.types && options.types.length > 0) {
-      filterQuery.type = { $in: options.types };
-    }
-
-    const candidateDocs = await collection.find(filterQuery).toArray();
-
+  // Calculate similarity ranking
+  if (retrieved.length === 0 && candidateDocs.length > 0) {
     const scored = candidateDocs
       .map((doc) => {
         let sim = 0;
         if (doc.embedding && doc.embedding.length > 0) {
           sim = cosineSimilarity(queryVector, doc.embedding);
         } else {
-          // Text match score as fallback
           const qWords = query.toLowerCase().split(/\s+/);
           const cWords = (doc.title + ' ' + doc.content).toLowerCase();
           const matches = qWords.filter((w) => cWords.includes(w)).length;
           sim = matches / Math.max(qWords.length, 1);
         }
 
-        // Recency boost
         const ageHours = (Date.now() - new Date(doc.updatedAt).getTime()) / (1000 * 3600);
         const recencyBonus = Math.max(0, 0.05 - ageHours * 0.001);
 
@@ -266,63 +331,28 @@ export async function recallMemories(
     retrieved = scored;
   }
 
-  // Update access counts asynchronously
-  if (retrieved.length > 0) {
-    const idsToUpdate = retrieved
-      .map((m) => m._id)
-      .filter(Boolean)
-      .map((id) => new ObjectId(id as string));
-
-    if (idsToUpdate.length > 0) {
-      collection
-        .updateMany(
-          { _id: { $in: idsToUpdate } as any },
-          {
-            $inc: { 'lifecycle.accessCount': 1 },
-            $set: { 'lifecycle.lastAccessedAt': new Date().toISOString() },
-          }
-        )
-        .catch(() => {});
-    }
-  }
-
   return retrieved;
 }
 
-/**
- * Get aggregated memory metrics for the dashboard
- */
-export async function getMemoryStats(workspaceId: string) {
-  const db = await getDb();
-  const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+function purgeExpiredInMemory() {
+  const now = Date.now();
+  for (let i = inMemoryStore.length - 1; i >= 0; i--) {
+    const m = inMemoryStore[i];
+    if (m.expiresAt && new Date(m.expiresAt).getTime() <= now) {
+      inMemoryStore.splice(i, 1);
+    }
+  }
+}
 
-  const stats = await collection
-    .aggregate([
-      { $match: { workspaceId } },
-      {
-        $group: {
-          _id: '$lifecycle.status',
-          count: { $sum: 1 },
-          totalAccesses: { $sum: '$lifecycle.accessCount' },
-        },
-      },
-    ])
-    .toArray();
+export function getInMemoryMemories(workspaceId: string): MemoryDocument[] {
+  purgeExpiredInMemory();
+  return inMemoryStore.filter((m) => m.workspaceId === workspaceId);
+}
 
-  const typeCounts = await collection
-    .aggregate([
-      { $match: { workspaceId } },
-      {
-        $group: {
-          _id: '$type',
-          count: { $sum: 1 },
-        },
-      },
-    ])
-    .toArray();
-
-  return {
-    statusBreakdown: stats,
-    typeBreakdown: typeCounts,
-  };
+export function clearInMemoryMemories(workspaceId: string) {
+  for (let i = inMemoryStore.length - 1; i >= 0; i--) {
+    if (inMemoryStore[i].workspaceId === workspaceId) {
+      inMemoryStore.splice(i, 1);
+    }
+  }
 }

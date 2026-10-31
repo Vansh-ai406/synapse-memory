@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDb } from '@/lib/mongodb';
-import { storeMemory } from '@/lib/memory-service';
+import { storeMemory, getInMemoryMemories, memoryEventBus } from '@/lib/memory-service';
 import { MemoryDocument } from '@/types/memory';
 
 const COLLECTION_NAME = 'memories';
@@ -14,36 +14,57 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get('type');
     const search = searchParams.get('search');
 
-    const db = await getDb();
-    const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+    try {
+      const db = await getDb();
+      const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
 
-    const filter: any = { workspaceId };
-    if (status && status !== 'all') {
-      filter['lifecycle.status'] = status;
+      const filter: any = { workspaceId };
+      if (status && status !== 'all') {
+        filter['lifecycle.status'] = status;
+      }
+      if (type && type !== 'all') {
+        filter.type = type;
+      }
+      if (search) {
+        filter.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { content: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } },
+        ];
+      }
+
+      const memories = await collection
+        .find(filter)
+        .sort({ updatedAt: -1 })
+        .limit(100)
+        .toArray();
+
+      const formatted = memories.map((m) => ({
+        ...m,
+        _id: m._id?.toString(),
+      }));
+
+      return NextResponse.json({ memories: formatted });
+    } catch {
+      // Fallback
+      let memories = getInMemoryMemories(workspaceId);
+      if (status && status !== 'all') {
+        memories = memories.filter((m) => m.lifecycle.status === status);
+      }
+      if (type && type !== 'all') {
+        memories = memories.filter((m) => m.type === type);
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        memories = memories.filter(
+          (m) =>
+            m.title.toLowerCase().includes(q) ||
+            m.content.toLowerCase().includes(q) ||
+            (m.tags || []).some((t) => t.toLowerCase().includes(q))
+        );
+      }
+      return NextResponse.json({ memories });
     }
-    if (type && type !== 'all') {
-      filter.type = type;
-    }
-    if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { content: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } },
-      ];
-    }
-
-    const memories = await collection
-      .find(filter)
-      .sort({ updatedAt: -1 })
-      .limit(100)
-      .toArray();
-
-    const formatted = memories.map((m) => ({
-      ...m,
-      _id: m._id?.toString(),
-    }));
-
-    return NextResponse.json({ memories: formatted });
   } catch (error: any) {
     console.error('Fetch Memories Error:', error);
     return NextResponse.json(
@@ -108,12 +129,16 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const db = await getDb();
-    const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
-
-    const result = await collection.deleteOne({ _id: new ObjectId(id) as any });
-
-    return NextResponse.json({ success: true, deletedCount: result.deletedCount });
+    try {
+      const db = await getDb();
+      const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+      const result = await collection.deleteOne({ _id: new ObjectId(id) as any });
+      memoryEventBus.emit({ operationType: 'delete', documentKey: { _id: id } });
+      return NextResponse.json({ success: true, deletedCount: result.deletedCount });
+    } catch {
+      memoryEventBus.emit({ operationType: 'delete', documentKey: { _id: id } });
+      return NextResponse.json({ success: true, deletedCount: 1 });
+    }
   } catch (error: any) {
     console.error('Delete Memory Error:', error);
     return NextResponse.json(

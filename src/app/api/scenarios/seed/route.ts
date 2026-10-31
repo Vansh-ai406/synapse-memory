@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/mongodb';
-import { storeMemory } from '@/lib/memory-service';
+import { storeMemory, clearInMemoryMemories } from '@/lib/memory-service';
 import { MemoryDocument } from '@/types/memory';
 
 export async function POST(req: NextRequest) {
@@ -8,17 +8,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action = 'seed_all', workspaceId = 'svnit-hackathon', userId = 'vansh' } = body;
 
-    const db = await getDb();
-    const collection = db.collection<MemoryDocument>('memories');
+    let isMongo = false;
+    try {
+      const db = await getDb();
+      const collection = db.collection<MemoryDocument>('memories');
+      if (action === 'reset') {
+        await collection.deleteMany({ workspaceId });
+      }
+      isMongo = true;
+    } catch {}
 
     if (action === 'reset') {
-      await collection.deleteMany({ workspaceId });
+      clearInMemoryMemories(workspaceId);
       return NextResponse.json({ success: true, message: 'Workspace memories cleared.' });
     }
 
     if (action === 'seed_baseline' || action === 'seed_all') {
-      // Clear current workspace memories for clean demo state
-      await collection.deleteMany({ workspaceId });
+      clearInMemoryMemories(workspaceId);
 
       // 1. Architecture constraint memory
       await storeMemory({
@@ -60,7 +66,8 @@ export async function POST(req: NextRequest) {
         userId,
         type: 'fact',
         title: 'Temporary Incident War-Room Token (TTL 120s)',
-        content: 'Active Incident War-Room Bridge Token: "WAR-ROOM-TOKEN-SVNIT-2026". Expires automatically via MongoDB TTL index in 120 seconds.',
+        content:
+          'Active Incident War-Room Bridge Token: "WAR-ROOM-TOKEN-SVNIT-2026". Expires automatically via MongoDB TTL index in 120 seconds.',
         summary: 'Ephemeral War-Room Token with 120-second TTL index auto-expiry.',
         tags: ['ephemeral', 'ttl', 'incident-bridge'],
         ttlSeconds: 120,

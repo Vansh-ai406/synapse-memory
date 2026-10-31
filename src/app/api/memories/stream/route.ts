@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDb } from '@/lib/mongodb';
 import { MemoryDocument } from '@/types/memory';
+import { memoryEventBus } from '@/lib/memory-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,19 +17,24 @@ export async function GET(req: NextRequest) {
 
       const sendEvent = (event: string, data: any) => {
         if (isClosed) return;
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        try {
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        } catch {}
       };
 
       sendEvent('connected', { message: 'Subscribed to MongoDB Change Stream', workspaceId });
 
+      // Subscribe to memoryEventBus for instant in-process changes
+      const unsubscribeBus = memoryEventBus.subscribe((data) => {
+        sendEvent('memory_change', data);
+      });
+
       let changeStream: any = null;
-      let pollInterval: NodeJS.Timeout | null = null;
 
       try {
         const db = await getDb();
         const collection = db.collection<MemoryDocument>('memories');
 
-        // Attempt MongoDB Change Stream (works on Atlas clusters and replica sets)
         changeStream = collection.watch([
           {
             $match: {
@@ -52,53 +58,17 @@ export async function GET(req: NextRequest) {
           });
         });
 
-        changeStream.on('error', (err: any) => {
-          console.warn('Change Stream error (likely standalone MongoDB, switching to polling fallback):', err.message);
-          startPollingFallback();
+        changeStream.on('error', () => {
+          // Handled gracefully via in-process event bus
         });
-      } catch (err: any) {
-        console.warn('Cannot open Change Stream directly, using resilient polling fallback:', err.message);
-        startPollingFallback();
-      }
-
-      function startPollingFallback() {
-        if (pollInterval) return;
-        let lastCheck = new Date().toISOString();
-
-        pollInterval = setInterval(async () => {
-          if (isClosed) return;
-          try {
-            const db = await getDb();
-            const collection = db.collection<MemoryDocument>('memories');
-            const recent = await collection
-              .find({
-                workspaceId,
-                updatedAt: { $gt: lastCheck },
-              })
-              .toArray();
-
-            if (recent.length > 0) {
-              lastCheck = new Date().toISOString();
-              for (const doc of recent) {
-                sendEvent('memory_change', {
-                  operationType: 'update',
-                  documentKey: { _id: doc._id },
-                  fullDocument: { ...doc, _id: doc._id?.toString() },
-                  timestamp: new Date().toISOString(),
-                  source: 'polling_fallback',
-                });
-              }
-            }
-          } catch {
-            // Ignore temporary polling errors
-          }
-        }, 2000);
+      } catch {
+        // Handled gracefully via in-process event bus
       }
 
       req.signal.addEventListener('abort', () => {
         isClosed = true;
+        unsubscribeBus();
         if (changeStream) changeStream.close().catch(() => {});
-        if (pollInterval) clearInterval(pollInterval);
         try {
           controller.close();
         } catch {}

@@ -14,16 +14,19 @@
 # production
 /build
 
-# misc
+# misc & OS
 .DS_Store
+Thumbs.db
 *.pem
+*.tmp
 
-# debug
+# debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
 
-# local env files
+# local env files (never commit real credentials)
 .env*.local
 .env
 
@@ -34,3 +37,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# original organizer brief (kept locally, excluded from git)
+MongoDB Student Hackathon SVNIT.pdf

@@ -43,3 +43,4 @@ export interface IncidentResolutionReport {
   appliedFix: string;
   newMemoryLogged?: MemoryDocument;
 }
+

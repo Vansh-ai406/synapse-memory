@@ -56,22 +56,22 @@ export default function ExplainabilityModal({ memory, onClose }: ExplainabilityM
 
             <div className="p-3.5 rounded-xl bg-[#002738] border border-emerald-900/60 flex flex-col justify-between">
               <span className="text-slate-400 text-[11px] flex items-center gap-1">
-                <CheckCircle className="w-3 h-3 text-[#00ed64]" /> Lifecycle Status
+                <CheckCircle className="w-3.5 h-3.5 text-[#00ed64]" /> Lifecycle Status
               </span>
               <span className="text-base font-semibold text-white uppercase mt-1">
-                {memory.lifecycle.status}
+                {memory.lifecycle?.status || 'active'}
               </span>
               <span className="text-[10px] text-slate-400">
-                Confidence: {(memory.lifecycle.confidence * 100).toFixed(0)}%
+                Confidence: {((memory.lifecycle?.confidence ?? 1) * 100).toFixed(0)}%
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl bg-[#002738] border border-emerald-900/60 flex flex-col justify-between">
               <span className="text-slate-400 text-[11px] flex items-center gap-1">
-                <Shield className="w-3 h-3 text-slate-400" /> Reinforcement
+                <Shield className="w-3.5 h-3.5 text-slate-400" /> Reinforcement
               </span>
               <span className="text-base font-semibold text-white mt-1">
-                {memory.lifecycle.accessCount} Recalls
+                {memory.lifecycle?.accessCount ?? 0} Recalls
               </span>
               <span className="text-[10px] text-slate-400">Adaptive frequency score</span>
             </div>

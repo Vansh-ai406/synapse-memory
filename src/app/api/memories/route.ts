@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDb } from '@/lib/mongodb';
-import { storeMemory, getInMemoryMemories, memoryEventBus } from '@/lib/memory-service';
+import { storeMemory, getInMemoryMemories, deleteInMemoryMemory, memoryEventBus } from '@/lib/memory-service';
 import { MemoryDocument } from '@/types/memory';
 
 const COLLECTION_NAME = 'memories';
@@ -129,10 +129,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
+    deleteInMemoryMemory(id);
+
     try {
       const db = await getDb();
       const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
-      const result = await collection.deleteOne({ _id: new ObjectId(id) as any });
+      const filter = ObjectId.isValid(id) ? { _id: new ObjectId(id) as any } : { _id: id as any };
+      const result = await collection.deleteOne(filter);
       memoryEventBus.emit({ operationType: 'delete', documentKey: { _id: id } });
       return NextResponse.json({ success: true, deletedCount: result.deletedCount });
     } catch {

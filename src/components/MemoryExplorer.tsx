@@ -50,7 +50,7 @@ export default function MemoryExplorer({
 
   // Filter memories
   const filtered = memories.filter((m) => {
-    if (selectedStatus !== 'all' && m.lifecycle.status !== selectedStatus) return false;
+    if (selectedStatus !== 'all' && m.lifecycle?.status !== selectedStatus) return false;
     if (selectedType !== 'all' && m.type !== selectedType) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();

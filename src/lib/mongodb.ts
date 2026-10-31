@@ -11,22 +11,26 @@ declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
+const options = {
+  maxPoolSize: 50,
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 5000,
+};
+
 if (process.env.NODE_ENV === 'development') {
   // In development mode, use a global variable so the client is preserved across module reloads
   if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, {
-      maxPoolSize: 20,
-      serverSelectionTimeoutMS: 5000,
-    });
+    client = new MongoClient(uri, options);
     global._mongoClientPromise = client.connect();
   }
   clientPromise = global._mongoClientPromise;
 } else {
-  // In production mode, avoid using a global variable
-  client = new MongoClient(uri, {
-    maxPoolSize: 50,
-  });
-  clientPromise = client.connect();
+  // In serverless / production environments, reuse global promise if available to prevent connection leaks
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(uri, options);
+    global._mongoClientPromise = client.connect();
+  }
+  clientPromise = global._mongoClientPromise;
 }
 
 export async function getDb(): Promise<Db> {

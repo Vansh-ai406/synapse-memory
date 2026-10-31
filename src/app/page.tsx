@@ -248,7 +248,10 @@ export default function Home() {
           )}
 
           {activeView === 'decay' && (
-            <MemoryDecayView workspaceId={workspaceId} />
+            <MemoryDecayView
+              workspaceId={workspaceId}
+              onRefreshMemories={fetchMemories}
+            />
           )}
         </div>
 

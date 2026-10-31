@@ -15,9 +15,10 @@ import { DecayAnalyticsReport } from '@/types/agent';
 
 interface MemoryDecayViewProps {
   workspaceId: string;
+  onRefreshMemories?: () => void;
 }
 
-export default function MemoryDecayView({ workspaceId }: MemoryDecayViewProps) {
+export default function MemoryDecayView({ workspaceId, onRefreshMemories }: MemoryDecayViewProps) {
   const [report, setReport] = useState<DecayAnalyticsReport | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [reinforcingId, setReinforcingId] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export default function MemoryDecayView({ workspaceId }: MemoryDecayViewProps) {
       });
       if (res.ok) {
         await fetchAnalytics();
+        onRefreshMemories?.();
       }
     } catch (err) {
       console.error('Reinforce error:', err);

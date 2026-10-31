@@ -1,7 +1,7 @@
 import { getDb } from './mongodb';
 import { MemoryDocument } from '@/types/memory';
 import { DecayAnalyticsReport, MemoryDecayMetric } from '@/types/agent';
-import { getInMemoryMemories } from './memory-service';
+import { getInMemoryMemories, memoryEventBus } from './memory-service';
 
 const COLLECTION_NAME = 'memories';
 const HALF_LIFE_HOURS = 48; // Memory retains ~50% retention after 48h without reinforcement
@@ -128,16 +128,34 @@ export async function reinforceMemory(memoryId: string): Promise<boolean> {
     const db = await getDb();
     const collection = db.collection(COLLECTION_NAME);
     const { ObjectId } = await import('mongodb');
+    const filter = ObjectId.isValid(memoryId) ? { _id: new ObjectId(memoryId) as any } : { _id: memoryId as any };
     await collection.updateOne(
-      { _id: new ObjectId(memoryId) as any },
+      filter,
       {
         $inc: { 'lifecycle.accessCount': 1 },
         $set: { 'lifecycle.lastAccessedAt': now, updatedAt: now },
       }
     );
-    return true;
-  } catch {
-    return false;
+  } catch {}
+
+  // Update in-memory fallback store if present
+  const mems = global._inMemoryStore || [];
+  const target = mems.find((m) => m._id === memoryId);
+  if (target) {
+    if (!target.lifecycle) {
+      target.lifecycle = { status: 'active', confidence: 1, accessCount: 0, lastAccessedAt: now };
+    }
+    target.lifecycle.accessCount = (target.lifecycle.accessCount || 0) + 1;
+    target.lifecycle.lastAccessedAt = now;
+    target.updatedAt = now;
   }
+
+  memoryEventBus.emit({
+    operationType: 'update',
+    documentKey: { _id: memoryId },
+    timestamp: now,
+  });
+
+  return true;
 }
 

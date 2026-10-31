@@ -363,6 +363,15 @@ export function getInMemoryMemories(workspaceId: string): MemoryDocument[] {
   return inMemoryStore.filter((m) => m.workspaceId === workspaceId);
 }
 
+export function deleteInMemoryMemory(id: string): boolean {
+  const idx = inMemoryStore.findIndex((m) => m._id === id);
+  if (idx !== -1) {
+    inMemoryStore.splice(idx, 1);
+    return true;
+  }
+  return false;
+}
+
 export function clearInMemoryMemories(workspaceId: string) {
   for (let i = inMemoryStore.length - 1; i >= 0; i--) {
     if (inMemoryStore[i].workspaceId === workspaceId) {

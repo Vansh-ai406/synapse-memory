@@ -1,0 +1,124 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
+import { getDb } from '@/lib/mongodb';
+import { storeMemory } from '@/lib/memory-service';
+import { MemoryDocument } from '@/types/memory';
+
+const COLLECTION_NAME = 'memories';
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const workspaceId = searchParams.get('workspaceId') || 'svnit-hackathon';
+    const status = searchParams.get('status');
+    const type = searchParams.get('type');
+    const search = searchParams.get('search');
+
+    const db = await getDb();
+    const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+
+    const filter: any = { workspaceId };
+    if (status && status !== 'all') {
+      filter['lifecycle.status'] = status;
+    }
+    if (type && type !== 'all') {
+      filter.type = type;
+    }
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } },
+      ];
+    }
+
+    const memories = await collection
+      .find(filter)
+      .sort({ updatedAt: -1 })
+      .limit(100)
+      .toArray();
+
+    const formatted = memories.map((m) => ({
+      ...m,
+      _id: m._id?.toString(),
+    }));
+
+    return NextResponse.json({ memories: formatted });
+  } catch (error: any) {
+    console.error('Fetch Memories Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const {
+      workspaceId = 'svnit-hackathon',
+      userId = 'vansh',
+      type = 'fact',
+      title,
+      content,
+      tags = [],
+      ttlSeconds = null,
+      privacy = 'team',
+    } = body;
+
+    if (!title || !content) {
+      return NextResponse.json(
+        { error: 'Title and content are required' },
+        { status: 400 }
+      );
+    }
+
+    const result = await storeMemory({
+      workspaceId,
+      userId,
+      type,
+      title,
+      content,
+      tags,
+      ttlSeconds,
+      privacy,
+      source: {
+        rawText: content,
+        author: userId,
+      },
+    });
+
+    return NextResponse.json({ memory: result.memory, conflictedMemory: result.conflictedMemory });
+  } catch (error: any) {
+    console.error('Store Memory Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    }
+
+    const db = await getDb();
+    const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+
+    const result = await collection.deleteOne({ _id: new ObjectId(id) as any });
+
+    return NextResponse.json({ success: true, deletedCount: result.deletedCount });
+  } catch (error: any) {
+    console.error('Delete Memory Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

@@ -74,3 +74,4 @@ export interface ConflictRecord {
   status: 'pending' | 'resolved' | 'rejected';
   createdAt: string;
 }
+

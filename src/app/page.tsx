@@ -1,13 +1,16 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Header from '@/components/Header';
+import Header, { AppViewMode } from '@/components/Header';
 import ChatPlayground from '@/components/ChatPlayground';
 import MemoryExplorer from '@/components/MemoryExplorer';
+import MultiAgentView from '@/components/MultiAgentView';
+import MemoryDecayView from '@/components/MemoryDecayView';
 import ExplainabilityModal from '@/components/ExplainabilityModal';
 import { ChatMessage, MemoryDocument, RetrievedMemory } from '@/types/memory';
 
 export default function Home() {
+  const [activeView, setActiveView] = useState<AppViewMode>('chat');
   const [workspaceId, setWorkspaceId] = useState('svnit-hackathon');
   const [sessionId, setSessionId] = useState('session-1');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -144,7 +147,7 @@ export default function Home() {
               '1. **Strict MongoDB Native Driver Policy** (Constraint)\n' +
               '2. **Incident INC-402 Connection Starvation Fix** (Incident Fix)\n' +
               '3. **Temporary Incident War-Room Token** (Ephemeral TTL 120s)\n\n' +
-              '👉 Switch to **Session 2** or ask: *"Write database connection code for our user service"* to see how these memories immediately alter the agent\'s response!',
+              '👉 Switch to **Session 2** or check the **Multi-Agent Room** tab to watch 3 agents collaborate using these memories!',
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -202,19 +205,34 @@ export default function Home() {
         onSeedDemo={handleSeedDemo}
         workspaceId={workspaceId}
         setWorkspaceId={setWorkspaceId}
+        activeView={activeView}
+        setActiveView={setActiveView}
       />
 
       <main className="flex-1 p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-[1700px] w-full mx-auto">
-        {/* Left Column: Chat & Session Playground (7 cols) */}
+        {/* Left Column: Active Mode View (7 cols) */}
         <div className="lg:col-span-7 h-[calc(100vh-6.5rem)] min-h-[550px]">
-          <ChatPlayground
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isLoading={isLoading}
-            sessionId={sessionId}
-            setSessionId={setSessionId}
-            onInspectMemory={(mem) => setInspectingMemory(mem)}
-          />
+          {activeView === 'chat' && (
+            <ChatPlayground
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              isLoading={isLoading}
+              sessionId={sessionId}
+              setSessionId={setSessionId}
+              onInspectMemory={(mem) => setInspectingMemory(mem)}
+            />
+          )}
+
+          {activeView === 'multi-agent' && (
+            <MultiAgentView
+              workspaceId={workspaceId}
+              onInspectMemory={(mem) => setInspectingMemory(mem)}
+            />
+          )}
+
+          {activeView === 'decay' && (
+            <MemoryDecayView workspaceId={workspaceId} />
+          )}
         </div>
 
         {/* Right Column: MongoDB Memory Bank & Live Visualizer (5 cols) */}

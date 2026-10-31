@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       sendEvent('connected', { message: 'Subscribed to MongoDB Change Stream', workspaceId });
 
       // Subscribe to memoryEventBus for instant in-process changes
-      const unsubscribeBus = memoryEventBus.subscribe((data) => {
+      const unsubscribeBus = memoryEventBus.subscribe((data: any) => {
         sendEvent('memory_change', data);
       });
 

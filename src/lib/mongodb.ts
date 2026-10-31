@@ -39,3 +39,4 @@ export async function getMongoClient(): Promise<MongoClient> {
 }
 
 export default clientPromise;
+

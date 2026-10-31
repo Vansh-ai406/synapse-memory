@@ -213,3 +213,4 @@ export default function MemoryDecayView({ workspaceId }: MemoryDecayViewProps) {
     </div>
   );
 }
+

@@ -5,15 +5,15 @@ import {
   Database,
   Activity,
   RefreshCw,
-  Zap,
-  Shield,
   Sparkles,
   MessageSquare,
   Users,
   TrendingUp,
+  GitPullRequest,
+  ShieldAlert,
 } from 'lucide-react';
 
-export type AppViewMode = 'chat' | 'multi-agent' | 'decay';
+export type AppViewMode = 'chat' | 'multi-agent' | 'code-review' | 'incident' | 'decay';
 
 interface HeaderProps {
   isStreaming: boolean;
@@ -57,10 +57,10 @@ export default function Header({
       </div>
 
       {/* Center Navigation Tabs */}
-      <div className="flex items-center p-1 rounded-xl bg-[#00141d] border border-emerald-950/80">
+      <div className="flex items-center p-1 rounded-xl bg-[#00141d] border border-emerald-950/80 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveView('chat')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
             activeView === 'chat'
               ? 'bg-[#002738] text-[#00ed64] shadow-sm border border-emerald-500/30'
               : 'text-slate-400 hover:text-white'
@@ -72,7 +72,7 @@ export default function Header({
 
         <button
           onClick={() => setActiveView('multi-agent')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
             activeView === 'multi-agent'
               ? 'bg-[#002738] text-[#00ed64] shadow-sm border border-emerald-500/30'
               : 'text-slate-400 hover:text-white'
@@ -84,8 +84,32 @@ export default function Header({
         </button>
 
         <button
+          onClick={() => setActiveView('code-review')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+            activeView === 'code-review'
+              ? 'bg-[#002738] text-[#00ed64] shadow-sm border border-emerald-500/30'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <GitPullRequest className="w-3.5 h-3.5" />
+          <span>PR Code Guard</span>
+        </button>
+
+        <button
+          onClick={() => setActiveView('incident')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+            activeView === 'incident'
+              ? 'bg-[#002738] text-[#00ed64] shadow-sm border border-emerald-500/30'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+          <span>SRE Self-Healing</span>
+        </button>
+
+        <button
           onClick={() => setActiveView('decay')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
             activeView === 'decay'
               ? 'bg-[#002738] text-[#00ed64] shadow-sm border border-emerald-500/30'
               : 'text-slate-400 hover:text-white'
@@ -98,7 +122,6 @@ export default function Header({
 
       {/* Right Controls */}
       <div className="flex items-center gap-2">
-        {/* Change Stream Status */}
         <div className="hidden sm:flex items-center gap-2 bg-[#002738] border border-emerald-900/60 px-2.5 py-1.5 rounded-lg text-xs">
           <span
             className={`w-2 h-2 rounded-full ${

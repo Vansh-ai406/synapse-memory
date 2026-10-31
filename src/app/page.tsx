@@ -6,6 +6,8 @@ import ChatPlayground from '@/components/ChatPlayground';
 import MemoryExplorer from '@/components/MemoryExplorer';
 import MultiAgentView from '@/components/MultiAgentView';
 import MemoryDecayView from '@/components/MemoryDecayView';
+import CodeReviewerView from '@/components/CodeReviewerView';
+import IncidentSimulatorView from '@/components/IncidentSimulatorView';
 import ExplainabilityModal from '@/components/ExplainabilityModal';
 import { ChatMessage, MemoryDocument, RetrievedMemory } from '@/types/memory';
 
@@ -147,7 +149,7 @@ export default function Home() {
               '1. **Strict MongoDB Native Driver Policy** (Constraint)\n' +
               '2. **Incident INC-402 Connection Starvation Fix** (Incident Fix)\n' +
               '3. **Temporary Incident War-Room Token** (Ephemeral TTL 120s)\n\n' +
-              '👉 Switch to **Session 2** or check the **Multi-Agent Room** tab to watch 3 agents collaborate using these memories!',
+              '👉 Explore the new **PR Code Guard** or **SRE Self-Healing** tabs to test real-world enterprise applications!',
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -227,6 +229,21 @@ export default function Home() {
             <MultiAgentView
               workspaceId={workspaceId}
               onInspectMemory={(mem) => setInspectingMemory(mem)}
+            />
+          )}
+
+          {activeView === 'code-review' && (
+            <CodeReviewerView
+              workspaceId={workspaceId}
+              onInspectMemory={(mem) => setInspectingMemory(mem)}
+            />
+          )}
+
+          {activeView === 'incident' && (
+            <IncidentSimulatorView
+              workspaceId={workspaceId}
+              onInspectMemory={(mem) => setInspectingMemory(mem)}
+              onRefreshMemories={fetchMemories}
             />
           )}
 

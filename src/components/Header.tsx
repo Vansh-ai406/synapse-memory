@@ -11,6 +11,7 @@ import {
   TrendingUp,
   GitPullRequest,
   ShieldAlert,
+  FileText,
 } from 'lucide-react';
 
 export type AppViewMode = 'chat' | 'multi-agent' | 'code-review' | 'incident' | 'decay';
@@ -136,6 +137,16 @@ export default function Header({
             </strong>
           </span>
         </div>
+
+        <a
+          href="/SynapseMemory_Project_Report.pdf"
+          download="SynapseMemory_Project_Report.pdf"
+          className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-emerald-950 text-[#00ed64] border border-emerald-500/30 hover:bg-emerald-900/50 transition active:scale-95"
+          title="Download Project Report PDF"
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">PDF Report</span>
+        </a>
 
         <button
           onClick={onSeedDemo}

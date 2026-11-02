@@ -154,10 +154,10 @@ export default function MemoryGraphCanvas({
 
       ctx.clearRect(0, 0, width, height);
 
-      // Subtle background grid
-      ctx.strokeStyle = 'rgba(0, 45, 60, 0.3)';
+      // Subtle modern tech grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
       ctx.lineWidth = 1;
-      const gridSize = 30;
+      const gridSize = 32;
       for (let x = 0; x < width; x += gridSize) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
@@ -385,27 +385,27 @@ export default function MemoryGraphCanvas({
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden bg-[#00141e] rounded-xl border border-emerald-950">
+    <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden bg-[#090b10] rounded-xl border border-white/[0.08]">
       {/* Legend & Controls overlay */}
-      <div className="absolute top-2 left-2 z-10 flex flex-wrap items-center gap-2 bg-[#001e2b]/90 border border-emerald-950 p-2 rounded-lg text-[10px] backdrop-blur">
-        <span className="flex items-center gap-1 text-emerald-400">
+      <div className="absolute top-2.5 left-2.5 z-10 flex flex-wrap items-center gap-2 bg-[#111520]/85 border border-white/[0.08] p-2 rounded-lg text-[10px] backdrop-blur-md shadow-sm">
+        <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
           <span className="w-2 h-2 rounded-full bg-[#00ed64]" /> Constraint
         </span>
-        <span className="flex items-center gap-1 text-amber-400">
+        <span className="flex items-center gap-1.5 text-amber-400 font-medium">
           <span className="w-2 h-2 rounded-full bg-[#f59e0b]" /> Incident Fix
         </span>
-        <span className="flex items-center gap-1 text-rose-400">
+        <span className="flex items-center gap-1.5 text-rose-400 font-medium">
           <span className="w-2 h-2 rounded-full bg-[#f43f5e]" /> Superseded
         </span>
-        <span className="flex items-center gap-1 text-purple-400">
+        <span className="flex items-center gap-1.5 text-purple-400 font-medium">
           <span className="w-2 h-2 rounded-full bg-[#a855f7]" /> Ephemeral TTL
         </span>
       </div>
 
-      <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1">
         <button
           onClick={handleResetView}
-          className="p-1.5 rounded-lg bg-[#002738] text-slate-300 hover:text-white border border-emerald-950"
+          className="p-1.5 rounded-lg bg-[#141824] hover:bg-[#1c2234] text-slate-300 hover:text-white border border-white/[0.08] transition shadow-sm"
           title="Reset Graph Physics"
         >
           <RotateCcw className="w-3.5 h-3.5" />
@@ -423,8 +423,8 @@ export default function MemoryGraphCanvas({
         className="w-full h-full max-h-[500px]"
       />
 
-      <div className="absolute bottom-2 left-3 text-[10px] text-slate-500 pointer-events-none">
-        💡 Drag nodes to rearrange • Click any node to open Explainability Inspector
+      <div className="absolute bottom-2.5 left-3 text-[10px] text-slate-500 font-mono pointer-events-none">
+        💡 Drag nodes to rearrange • Click node to inspect vector similarity
       </div>
     </div>
   );

@@ -5,24 +5,24 @@ import Header, { AppViewMode } from '@/components/Header';
 import ChatPlayground from '@/components/ChatPlayground';
 import MemoryExplorer from '@/components/MemoryExplorer';
 import MultiAgentView from '@/components/MultiAgentView';
-import MemoryDecayView from '@/components/MemoryDecayView';
 import CodeReviewerView from '@/components/CodeReviewerView';
 import IncidentSimulatorView from '@/components/IncidentSimulatorView';
+import MemoryDecayView from '@/components/MemoryDecayView';
 import ExplainabilityModal from '@/components/ExplainabilityModal';
-import { ChatMessage, MemoryDocument, RetrievedMemory } from '@/types/memory';
+import { MemoryDocument, ChatMessage, RetrievedMemory } from '@/types/memory';
 
 export default function Home() {
-  const [activeView, setActiveView] = useState<AppViewMode>('chat');
   const [workspaceId, setWorkspaceId] = useState('svnit-hackathon');
   const [sessionId, setSessionId] = useState('session-1');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeView, setActiveView] = useState<AppViewMode>('chat');
   const [memories, setMemories] = useState<MemoryDocument[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [inspectingMemory, setInspectingMemory] = useState<RetrievedMemory | null>(null);
   const [lastUpdatedId, setLastUpdatedId] = useState<string | null>(null);
 
-  // Fetch all memories
+  // Fetch all memories from MongoDB API
   const fetchMemories = useCallback(async () => {
     try {
       const res = await fetch(`/api/memories?workspaceId=${workspaceId}`);
@@ -31,7 +31,7 @@ export default function Home() {
         setMemories(data.memories || []);
       }
     } catch (err) {
-      console.error('Error fetching memories:', err);
+      console.error('Failed to load memories:', err);
     }
   }, [workspaceId]);
 
@@ -129,7 +129,7 @@ export default function Home() {
     }
   };
 
-  // Seed 4 demo scenarios
+  // Seed demo scenarios
   const handleSeedDemo = async () => {
     try {
       const res = await fetch('/api/scenarios/seed', {
@@ -144,12 +144,12 @@ export default function Home() {
             id: 'init-msg',
             role: 'assistant',
             content:
-              '🎉 **Loaded Hackathon Demonstration Scenarios** into MongoDB!\n\n' +
-              '3 persistent memories have been indexed:\n' +
-              '1. **Strict MongoDB Native Driver Policy** (Constraint)\n' +
-              '2. **Incident INC-402 Connection Starvation Fix** (Incident Fix)\n' +
-              '3. **Temporary Incident War-Room Token** (Ephemeral TTL 120s)\n\n' +
-              '👉 Explore the new **PR Code Guard** or **SRE Self-Healing** tabs to test real-world enterprise applications!',
+              '🎉 **Hackathon Demonstration Scenarios Loaded!**\n\n' +
+              '3 core memory documents have been indexed into MongoDB:\n' +
+              '• **Strict MongoDB Native Driver Policy** (Constraint)\n' +
+              '• **Incident INC-402 Connection Starvation Fix** (Incident Fix)\n' +
+              '• **Temporary Incident War-Room Token** (Ephemeral TTL 120s)\n\n' +
+              'Explore the **PR Guard**, **Multi-Agent Room**, and **SRE Outage** tabs to test how these memories are actively recalled.',
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -200,7 +200,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#00121b]">
+    <div className="flex flex-col min-h-screen bg-[#08090d] text-slate-100 selection:bg-[#00ed64]/20 selection:text-[#00ed64]">
       <Header
         isStreaming={isStreaming}
         onReset={handleReset}
@@ -211,9 +211,9 @@ export default function Home() {
         setActiveView={setActiveView}
       />
 
-      <main className="flex-1 p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-[1700px] w-full mx-auto">
+      <main className="flex-1 p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-[1750px] w-full mx-auto">
         {/* Left Column: Active Mode View (7 cols) */}
-        <div className="lg:col-span-7 h-[calc(100vh-6.5rem)] min-h-[550px]">
+        <section className="lg:col-span-7 h-[calc(100vh-6.2rem)] min-h-[580px] flex flex-col">
           {activeView === 'chat' && (
             <ChatPlayground
               messages={messages}
@@ -253,10 +253,10 @@ export default function Home() {
               onRefreshMemories={fetchMemories}
             />
           )}
-        </div>
+        </section>
 
         {/* Right Column: MongoDB Memory Bank & Live Visualizer (5 cols) */}
-        <div className="lg:col-span-5 h-[calc(100vh-6.5rem)] min-h-[550px]">
+        <section className="lg:col-span-5 h-[calc(100vh-6.2rem)] min-h-[580px] flex flex-col">
           <MemoryExplorer
             memories={memories}
             onInspect={(mem) => setInspectingMemory(mem)}
@@ -264,7 +264,7 @@ export default function Home() {
             onAddManual={handleAddManual}
             lastUpdatedId={lastUpdatedId}
           />
-        </div>
+        </section>
       </main>
 
       {/* Explainability Modal */}

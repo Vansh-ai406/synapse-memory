@@ -72,29 +72,29 @@ export default function MemoryExplorer({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#001721] rounded-2xl border border-emerald-950/80 shadow-2xl overflow-hidden">
+    <div className="flex flex-col h-full rounded-2xl border border-white/[0.08] bg-[#0d1017]/90 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden">
       {/* Explorer Header */}
-      <div className="px-5 py-3.5 border-b border-emerald-950/60 bg-[#001c27] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Brain className="w-5 h-5 text-[#00ed64]" />
+      <div className="px-5 py-3 border-b border-white/[0.08] bg-[#111520]/80 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Brain className="w-4 h-4 text-[#00ed64]" />
           <div>
-            <h2 className="text-sm font-bold text-white tracking-wide">
-              MongoDB Memory Bank
+            <h2 className="text-xs font-semibold text-white tracking-wide flex items-center gap-2">
+              <span>MongoDB Memory Bank</span>
+              <span className="font-mono text-[10px] text-slate-400 bg-white/[0.06] px-1.5 py-0.2 rounded font-normal">
+                {memories.length} docs
+              </span>
             </h2>
-            <p className="text-[11px] text-slate-400">
-              {memories.length} persistent documents stored
-            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           {/* View Mode Toggle */}
-          <div className="flex items-center p-0.5 rounded-lg bg-[#002738] border border-emerald-950">
+          <div className="flex items-center p-0.5 rounded-lg bg-[#161c28] border border-white/[0.08]">
             <button
               onClick={() => setViewMode('cards')}
               className={`p-1.5 rounded-md transition ${
                 viewMode === 'cards'
-                  ? 'bg-emerald-950 text-[#00ed64] shadow-sm'
+                  ? 'bg-white/[0.12] text-white shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
               title="Card View"
@@ -105,10 +105,10 @@ export default function MemoryExplorer({
               onClick={() => setViewMode('graph')}
               className={`p-1.5 rounded-md transition ${
                 viewMode === 'graph'
-                  ? 'bg-emerald-950 text-[#00ed64] shadow-sm'
+                  ? 'bg-emerald-500/20 text-[#00ed64] shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
-              title="Knowledge Graph Visualizer"
+              title="Interactive Knowledge Graph"
             >
               <Network className="w-3.5 h-3.5" />
             </button>
@@ -116,9 +116,9 @@ export default function MemoryExplorer({
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-950 text-[#00ed64] border border-emerald-500/30 hover:bg-emerald-900/50 transition active:scale-95"
+            className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-[#161c28] hover:bg-[#1f283a] text-slate-200 border border-white/[0.08] hover:border-emerald-500/40 transition active:scale-95"
           >
-            <PlusCircle className="w-3.5 h-3.5" />
+            <PlusCircle className="w-3.5 h-3.5 text-[#00ed64]" />
             <span className="hidden sm:inline">New</span>
           </button>
         </div>
@@ -136,15 +136,15 @@ export default function MemoryExplorer({
       ) : (
         <>
           {/* Search & Filters */}
-          <div className="p-3 bg-[#00141d] border-b border-emerald-950/50 space-y-2">
+          <div className="p-3 bg-[#090b10] border-b border-white/[0.06] space-y-2">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-500" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search stored memories or tags..."
-                className="w-full bg-[#002433] text-xs text-white pl-8 pr-3 py-2 rounded-lg border border-emerald-950 focus:outline-none focus:border-[#00ed64] placeholder:text-slate-500"
+                placeholder="Search memories, tags, or content..."
+                className="w-full bg-[#121622] text-xs text-white pl-8 pr-3 py-1.5 rounded-lg border border-white/[0.08] focus:outline-none focus:border-[#00ed64] placeholder:text-slate-500 transition-colors"
               />
             </div>
 
@@ -153,7 +153,7 @@ export default function MemoryExplorer({
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="bg-[#002433] text-[11px] text-slate-300 border border-emerald-950 rounded px-2 py-1 focus:outline-none focus:border-[#00ed64]"
+                className="bg-[#121622] text-[11px] text-slate-300 border border-white/[0.08] rounded px-2 py-1 focus:outline-none focus:border-[#00ed64] cursor-pointer"
               >
                 <option value="all">Status: All</option>
                 <option value="active">Active</option>
@@ -164,7 +164,7 @@ export default function MemoryExplorer({
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="bg-[#002433] text-[11px] text-slate-300 border border-emerald-950 rounded px-2 py-1 focus:outline-none focus:border-[#00ed64]"
+                className="bg-[#121622] text-[11px] text-slate-300 border border-white/[0.08] rounded px-2 py-1 focus:outline-none focus:border-[#00ed64] cursor-pointer"
               >
                 <option value="all">Type: All</option>
                 <option value="constraint">Constraint</option>
@@ -177,7 +177,7 @@ export default function MemoryExplorer({
           </div>
 
           {/* Cards Feed */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
             {filtered.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
                 <Layers className="w-8 h-8 stroke-1 text-slate-600 mb-2" />
@@ -191,53 +191,53 @@ export default function MemoryExplorer({
                 return (
                   <div
                     key={m._id}
-                    className={`rounded-xl p-3.5 border text-xs space-y-2.5 transition relative overflow-hidden ${
+                    className={`rounded-xl p-3 border text-xs space-y-2 transition-all relative overflow-hidden ${
                       isJustUpdated
-                        ? 'ring-2 ring-[#00ed64] bg-[#002b3d]'
-                        : m.lifecycle.status === 'superseded'
-                        ? 'bg-[#001b24] border-rose-900/40 opacity-75'
-                        : 'bg-[#00212e] border-emerald-950 hover:border-emerald-800/80 shadow-sm'
+                        ? 'ring-2 ring-[#00ed64] bg-[#162030]'
+                        : m.lifecycle?.status === 'superseded'
+                        ? 'bg-[#12141c]/60 border-rose-500/20 opacity-75'
+                        : 'bg-[#121622] border-white/[0.08] hover:border-white/[0.16] shadow-sm'
                     }`}
                   >
                     {/* Top Row */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider font-mono ${
                             m.type === 'constraint'
-                              ? 'bg-rose-950 text-rose-300 border border-rose-800/40'
+                              ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
                               : m.type === 'incident_fix'
-                              ? 'bg-amber-950 text-amber-300 border border-amber-800/40'
-                              : 'bg-emerald-950 text-emerald-300 border border-emerald-800/40'
+                              ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                              : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                           }`}
                         >
                           {m.type}
                         </span>
 
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${
-                            m.lifecycle.status === 'active'
-                              ? 'bg-emerald-950 text-[#00ed64] border border-emerald-500/30'
-                              : m.lifecycle.status === 'superseded'
-                              ? 'bg-rose-950 text-rose-400 border border-rose-500/30'
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-medium uppercase font-mono ${
+                            m.lifecycle?.status === 'active'
+                              ? 'bg-emerald-500/10 text-[#00ed64] border border-emerald-500/20'
+                              : m.lifecycle?.status === 'superseded'
+                              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                               : 'bg-slate-800 text-slate-400 border border-slate-700'
                           }`}
                         >
-                          {m.lifecycle.status}
+                          {m.lifecycle?.status || 'active'}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-1 text-slate-400">
                         <button
                           onClick={() => onInspect(m as RetrievedMemory)}
-                          className="p-1 hover:text-emerald-400 rounded hover:bg-[#002f42] transition"
+                          className="p-1 hover:text-emerald-400 rounded hover:bg-white/[0.06] transition"
                           title="Inspect Vector Search & Explainability"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => m._id && onDelete(m._id)}
-                          className="p-1 hover:text-rose-400 rounded hover:bg-[#002f42] transition"
+                          className="p-1 hover:text-rose-400 rounded hover:bg-white/[0.06] transition"
                           title="Delete from MongoDB"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -250,40 +250,42 @@ export default function MemoryExplorer({
                       <h4 className="font-semibold text-slate-100 text-xs leading-snug">
                         {m.title}
                       </h4>
-                      <p className="text-slate-300 text-[11px] mt-1 leading-relaxed line-clamp-3">
+                      <p className="text-slate-300/80 text-[11px] mt-1 leading-relaxed line-clamp-3">
                         {m.content}
                       </p>
                     </div>
 
-                    {/* Superseded Reason */}
-                    {m.lifecycle.status === 'superseded' && (
-                      <div className="p-2 rounded bg-rose-950/40 border border-rose-800/30 text-[10px] text-rose-300 flex items-start gap-1.5">
-                        <ArrowRight className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <span>{m.lifecycle.supersededReason || 'Superseded by newer decision'}</span>
-                        </div>
+                    {/* Superseded Reason Banner */}
+                    {m.lifecycle?.status === 'superseded' && (
+                      <div className="p-2 rounded bg-rose-950/20 border border-rose-500/20 text-[10px] text-rose-300 flex items-center gap-1.5">
+                        <ArrowRight className="w-3 h-3 flex-shrink-0 text-rose-400" />
+                        <span className="truncate">
+                          {m.lifecycle.supersededReason || `Superseded by newer policy`}
+                        </span>
                       </div>
                     )}
 
-                    {/* TTL Live Countdown */}
+                    {/* Live TTL Countdown */}
                     {ttlText && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-purple-300 font-mono bg-purple-950/40 border border-purple-800/40 px-2 py-1 rounded">
-                        <Clock className="w-3 h-3 text-purple-400 animate-pulse" />
-                        <span>TTL Auto-Expiry: <strong>{ttlText}</strong></span>
+                      <div className="flex items-center gap-1.5 p-1.5 rounded bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[10px] font-mono">
+                        <Clock className="w-3 h-3 text-purple-400 animate-spin" />
+                        <span>MongoDB TTL Auto-Purge: {ttlText}</span>
                       </div>
                     )}
 
-                    {/* Footer */}
-                    <div className="pt-1.5 border-t border-emerald-950/60 flex items-center justify-between text-[10px] text-slate-400">
-                      <div className="flex items-center gap-2">
-                        <span>Recalled: <strong>{m.lifecycle.accessCount}x</strong></span>
-                        <span>•</span>
-                        <span>{formatTimeAgo(m.updatedAt)}</span>
+                    {/* Footer Info: Tags & Timestamp */}
+                    <div className="pt-1.5 border-t border-white/[0.05] flex items-center justify-between text-[10px] text-slate-500">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {m.tags && m.tags.slice(0, 3).map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="px-1.5 py-0.2 rounded bg-white/[0.04] text-slate-400 border border-white/[0.05] font-mono text-[9px]"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Shield className="w-3 h-3 text-slate-500" />
-                        <span className="capitalize">{m.privacy}</span>
-                      </div>
+                      <span className="text-slate-400">{formatTimeAgo(m.updatedAt || m.createdAt)}</span>
                     </div>
                   </div>
                 );
@@ -293,11 +295,11 @@ export default function MemoryExplorer({
         </>
       )}
 
-      {/* Manual Memory Modal */}
+      {/* Manual Memory Creation Modal */}
       {showAddModal && (
-        <ManualAddMemoryModal
+        <AddMemoryModal
           onClose={() => setShowAddModal(false)}
-          onAdd={(data) => {
+          onSubmit={(data) => {
             onAddManual(data);
             setShowAddModal(false);
           }}
@@ -307,108 +309,122 @@ export default function MemoryExplorer({
   );
 }
 
-function ManualAddMemoryModal({
+function AddMemoryModal({
   onClose,
-  onAdd,
+  onSubmit,
 }: {
   onClose: () => void;
-  onAdd: (data: any) => void;
+  onSubmit: (data: Partial<MemoryDocument>) => void;
 }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState<MemoryType>('constraint');
-  const [ttlMinutes, setTtlMinutes] = useState('');
+  const [tags, setTags] = useState('database, policy');
+  const [ttlSeconds, setTtlSeconds] = useState<string>('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !content) return;
-    onAdd({
+    if (!title.trim() || !content.trim()) return;
+
+    onSubmit({
       title,
       content,
       type,
-      ttlSeconds: ttlMinutes ? parseInt(ttlMinutes, 10) * 60 : null,
-      tags: ['manual', type],
-    });
+      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+      ttlSeconds: ttlSeconds ? parseInt(ttlSeconds, 10) : null,
+    } as any);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#001e2b] border border-emerald-800/80 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between border-b border-emerald-950 pb-3">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Brain className="w-4 h-4 text-[#00ed64]" /> Inject Memory Document into MongoDB
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-[#111520] border border-white/[0.12] rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <PlusCircle className="w-4 h-4 text-[#00ed64]" />
+            Insert Memory into MongoDB
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1 rounded text-slate-400 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3 text-xs">
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Title</label>
+            <label className="block text-slate-300 font-medium mb-1">Title</label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. AWS PrivateLink requirement"
-              className="w-full bg-[#002738] border border-emerald-900 rounded-lg p-2.5 text-white focus:outline-none focus:border-[#00ed64]"
+              placeholder="e.g. Mandatory Connection Pooling Policy"
+              className="w-full bg-[#161c28] rounded-lg px-3 py-2 border border-white/[0.08] text-white focus:outline-none focus:border-[#00ed64]"
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Memory Type</label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as MemoryType)}
-              className="w-full bg-[#002738] border border-emerald-900 rounded-lg p-2.5 text-white focus:outline-none focus:border-[#00ed64]"
-            >
-              <option value="constraint">Constraint</option>
-              <option value="incident_fix">Incident Fix</option>
-              <option value="decision">Decision</option>
-              <option value="preference">Preference</option>
-              <option value="fact">Fact</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-slate-300 font-semibold mb-1">Content / Rule</label>
+            <label className="block text-slate-300 font-medium mb-1">Content / Rule</label>
             <textarea
               required
               rows={3}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="State the rule, decision, or post-mortem detail..."
-              className="w-full bg-[#002738] border border-emerald-900 rounded-lg p-2.5 text-white focus:outline-none focus:border-[#00ed64]"
+              placeholder="Detailed guidelines, schema constraints, or runbook instructions..."
+              className="w-full bg-[#161c28] rounded-lg px-3 py-2 border border-white/[0.08] text-white focus:outline-none focus:border-[#00ed64]"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-300 font-medium mb-1">Memory Type</label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as MemoryType)}
+                className="w-full bg-[#161c28] rounded-lg px-2.5 py-2 border border-white/[0.08] text-white focus:outline-none focus:border-[#00ed64]"
+              >
+                <option value="constraint">Constraint</option>
+                <option value="incident_fix">Incident Fix</option>
+                <option value="decision">Decision</option>
+                <option value="preference">Preference</option>
+                <option value="fact">Fact</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-medium mb-1">TTL (Seconds, optional)</label>
+              <input
+                type="number"
+                value={ttlSeconds}
+                onChange={(e) => setTtlSeconds(e.target.value)}
+                placeholder="e.g. 120"
+                className="w-full bg-[#161c28] rounded-lg px-3 py-2 border border-white/[0.08] text-white focus:outline-none focus:border-[#00ed64]"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">
-              TTL Expiry (Minutes, optional)
-            </label>
+            <label className="block text-slate-300 font-medium mb-1">Tags (Comma-separated)</label>
             <input
-              type="number"
-              value={ttlMinutes}
-              onChange={(e) => setTtlMinutes(e.target.value)}
-              placeholder="Leave empty for permanent, or e.g. 5 for 5-min TTL"
-              className="w-full bg-[#002738] border border-emerald-900 rounded-lg p-2.5 text-white focus:outline-none focus:border-[#00ed64]"
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="mongodb, pool, tls"
+              className="w-full bg-[#161c28] rounded-lg px-3 py-2 border border-white/[0.08] text-white focus:outline-none focus:border-[#00ed64]"
             />
           </div>
 
-          <div className="pt-2 flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.08]">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700"
+              className="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-[#00ed64] text-[#001e2b] font-bold hover:bg-[#00c954]"
+              className="px-4 py-1.5 rounded-lg bg-[#00ed64] text-[#08090d] font-semibold hover:bg-[#00dc5c] shadow-emerald-glow"
             >
-              Save to MongoDB
+              Index Memory
             </button>
           </div>
         </form>

@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import Header, { AppViewMode } from '@/components/Header';
+import Sidebar, { StudioView } from '@/components/Sidebar';
+import TopBar from '@/components/TopBar';
 import ChatPlayground from '@/components/ChatPlayground';
 import MemoryExplorer from '@/components/MemoryExplorer';
+import MemoryGraphCanvas from '@/components/MemoryGraphCanvas';
 import MultiAgentView from '@/components/MultiAgentView';
 import CodeReviewerView from '@/components/CodeReviewerView';
 import IncidentSimulatorView from '@/components/IncidentSimulatorView';
@@ -14,7 +16,8 @@ import { MemoryDocument, ChatMessage, RetrievedMemory } from '@/types/memory';
 export default function Home() {
   const [workspaceId, setWorkspaceId] = useState('svnit-hackathon');
   const [sessionId, setSessionId] = useState('session-1');
-  const [activeView, setActiveView] = useState<AppViewMode>('chat');
+  const [activeView, setActiveView] = useState<StudioView>('chat');
+  const [showDrawer, setShowDrawer] = useState(true);
   const [memories, setMemories] = useState<MemoryDocument[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -144,12 +147,12 @@ export default function Home() {
             id: 'init-msg',
             role: 'assistant',
             content:
-              '🎉 **Hackathon Demonstration Scenarios Loaded!**\n\n' +
-              '3 core memory documents have been indexed into MongoDB:\n' +
+              '🎉 **Hackathon Demonstration Baseline Loaded into MongoDB!**\n\n' +
+              '3 core memory documents have been indexed:\n' +
               '• **Strict MongoDB Native Driver Policy** (Constraint)\n' +
               '• **Incident INC-402 Connection Starvation Fix** (Incident Fix)\n' +
-              '• **Temporary Incident War-Room Token** (Ephemeral TTL 120s)\n\n' +
-              'Explore the **PR Guard**, **Multi-Agent Room**, and **SRE Outage** tabs to test how these memories are actively recalled.',
+              '• **Temporary War-Room Auth Token** (Ephemeral TTL 120s)\n\n' +
+              'Use the sidebar navigation to test how these memories inform the **PR Guard**, **Multi-Agent Room**, and **SRE Outage** automations.',
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -200,74 +203,114 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#08090d] text-slate-100 selection:bg-[#00ed64]/20 selection:text-[#00ed64]">
-      <Header
-        isStreaming={isStreaming}
-        onReset={handleReset}
-        onSeedDemo={handleSeedDemo}
-        workspaceId={workspaceId}
-        setWorkspaceId={setWorkspaceId}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#07090e] text-slate-100">
+      {/* Studio Navigation Sidebar */}
+      <Sidebar
         activeView={activeView}
         setActiveView={setActiveView}
+        isStreaming={isStreaming}
+        onSeedDemo={handleSeedDemo}
+        onReset={handleReset}
+        workspaceId={workspaceId}
+        setWorkspaceId={setWorkspaceId}
+        totalMemoriesCount={memories.length}
       />
 
-      <main className="flex-1 p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-[1750px] w-full mx-auto">
-        {/* Left Column: Active Mode View (7 cols) */}
-        <section className="lg:col-span-7 h-[calc(100vh-6.2rem)] min-h-[580px] flex flex-col">
-          {activeView === 'chat' && (
-            <ChatPlayground
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              isLoading={isLoading}
-              sessionId={sessionId}
-              setSessionId={setSessionId}
-              onInspectMemory={(mem) => setInspectingMemory(mem)}
-            />
+      {/* Main Studio Viewport */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+        {/* Top Context & Action Bar */}
+        <TopBar
+          activeView={activeView}
+          sessionId={sessionId}
+          setSessionId={setSessionId}
+          showDrawer={showDrawer}
+          setShowDrawer={setShowDrawer}
+          totalMemoriesCount={memories.length}
+        />
+
+        {/* Center Stage + Optional Docked Memory Drawer */}
+        <div className="flex-1 flex p-3 sm:p-4 gap-4 overflow-hidden min-h-0">
+          {/* Main Content Area */}
+          <main className="flex-1 h-full min-w-0 overflow-hidden flex flex-col">
+            {activeView === 'chat' && (
+              <ChatPlayground
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                isLoading={isLoading}
+                sessionId={sessionId}
+                setSessionId={setSessionId}
+                onInspectMemory={(mem) => setInspectingMemory(mem)}
+              />
+            )}
+
+            {activeView === 'multi-agent' && (
+              <MultiAgentView
+                workspaceId={workspaceId}
+                onInspectMemory={(mem) => setInspectingMemory(mem)}
+              />
+            )}
+
+            {activeView === 'code-review' && (
+              <CodeReviewerView
+                workspaceId={workspaceId}
+                onInspectMemory={(mem) => setInspectingMemory(mem)}
+              />
+            )}
+
+            {activeView === 'incident' && (
+              <IncidentSimulatorView
+                workspaceId={workspaceId}
+                onInspectMemory={(mem) => setInspectingMemory(mem)}
+                onRefreshMemories={fetchMemories}
+              />
+            )}
+
+            {activeView === 'decay' && (
+              <MemoryDecayView
+                workspaceId={workspaceId}
+                onRefreshMemories={fetchMemories}
+              />
+            )}
+
+            {activeView === 'graph' && (
+              <div className="flex-1 h-full rounded-2xl border border-white/[0.08] bg-[#0d1017]/90 backdrop-blur-xl p-3 shadow-2xl overflow-hidden">
+                <MemoryGraphCanvas
+                  memories={memories}
+                  onInspectNode={(mem) => setInspectingMemory(mem)}
+                  lastUpdatedId={lastUpdatedId}
+                />
+              </div>
+            )}
+
+            {activeView === 'explorer' && (
+              <div className="flex-1 h-full">
+                <MemoryExplorer
+                  memories={memories}
+                  onInspect={(mem) => setInspectingMemory(mem)}
+                  onDelete={handleDeleteMemory}
+                  onAddManual={handleAddManual}
+                  lastUpdatedId={lastUpdatedId}
+                />
+              </div>
+            )}
+          </main>
+
+          {/* Right Side Docked Memory Drawer (shown when toggled, except in explorer view) */}
+          {showDrawer && activeView !== 'explorer' && (
+            <aside className="w-80 lg:w-96 flex-shrink-0 h-full hidden md:flex flex-col animate-in fade-in slide-in-from-right-4 duration-200">
+              <MemoryExplorer
+                memories={memories}
+                onInspect={(mem) => setInspectingMemory(mem)}
+                onDelete={handleDeleteMemory}
+                onAddManual={handleAddManual}
+                lastUpdatedId={lastUpdatedId}
+              />
+            </aside>
           )}
+        </div>
+      </div>
 
-          {activeView === 'multi-agent' && (
-            <MultiAgentView
-              workspaceId={workspaceId}
-              onInspectMemory={(mem) => setInspectingMemory(mem)}
-            />
-          )}
-
-          {activeView === 'code-review' && (
-            <CodeReviewerView
-              workspaceId={workspaceId}
-              onInspectMemory={(mem) => setInspectingMemory(mem)}
-            />
-          )}
-
-          {activeView === 'incident' && (
-            <IncidentSimulatorView
-              workspaceId={workspaceId}
-              onInspectMemory={(mem) => setInspectingMemory(mem)}
-              onRefreshMemories={fetchMemories}
-            />
-          )}
-
-          {activeView === 'decay' && (
-            <MemoryDecayView
-              workspaceId={workspaceId}
-              onRefreshMemories={fetchMemories}
-            />
-          )}
-        </section>
-
-        {/* Right Column: MongoDB Memory Bank & Live Visualizer (5 cols) */}
-        <section className="lg:col-span-5 h-[calc(100vh-6.2rem)] min-h-[580px] flex flex-col">
-          <MemoryExplorer
-            memories={memories}
-            onInspect={(mem) => setInspectingMemory(mem)}
-            onDelete={handleDeleteMemory}
-            onAddManual={handleAddManual}
-            lastUpdatedId={lastUpdatedId}
-          />
-        </section>
-      </main>
-
-      {/* Explainability Modal */}
+      {/* Vector Explainability Modal */}
       {inspectingMemory && (
         <ExplainabilityModal
           memory={inspectingMemory}

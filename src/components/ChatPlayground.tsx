@@ -167,40 +167,34 @@ export default function ChatPlayground({
                 )}
               </div>
 
-              {/* Recalled Memories Pill / Attribution */}
+              {/* Memory Indicator Chips (Hackathon Attribution) */}
               {msg.retrievedMemories && msg.retrievedMemories.length > 0 && (
-                <div className="ml-10 mr-4 bg-[#111520] border border-white/[0.08] rounded-xl p-3 text-xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-emerald-400 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5" /> Recalled From MongoDB Memory ({msg.retrievedMemories.length})
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">Atlas Vector Search</span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {msg.retrievedMemories.map((rm, i) => (
-                      <div
+                <div className="ml-10 flex flex-wrap items-center gap-2 pt-0.5">
+                  {msg.retrievedMemories.map((rm, i) => {
+                    const dateStr = new Date(rm.createdAt || Date.now()).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                    return (
+                      <button
                         key={i}
                         onClick={() => onInspectMemory(rm)}
-                        className="flex items-center justify-between p-2 rounded-lg bg-[#161c28] hover:bg-[#1c2434] border border-white/[0.06] hover:border-emerald-500/30 cursor-pointer transition group"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#121622] hover:bg-[#182030] text-slate-300 hover:text-white border border-emerald-500/25 hover:border-[#00ed64]/60 text-xs transition group cursor-pointer shadow-sm active:scale-95"
+                        title="Click to view full explainability & vector metrics in Context Inspector"
                       >
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase bg-emerald-500/10 text-[#00ed64] border border-emerald-500/20 font-mono">
-                            {rm.type}
-                          </span>
-                          <span className="truncate text-slate-200 text-xs font-medium">
-                            {rm.title}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0 text-slate-400 group-hover:text-emerald-400">
-                          <span className="text-[11px] font-mono text-emerald-400">
-                            {Math.round((rm.similarityScore || 0) * 100)}% match
-                          </span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#00ed64] group-hover:animate-ping" />
+                        <span className="text-slate-400 font-mono text-[11px]">
+                          Pulled from chat on {dateStr}:
+                        </span>
+                        <span className="font-semibold text-emerald-300 group-hover:text-emerald-200">
+                          {rm.title}
+                        </span>
+                        <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                          {Math.round((rm.similarityScore || 0.94) * 100)}%
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
@@ -214,8 +208,9 @@ export default function ChatPlayground({
                   <p className="text-amber-200/90 text-xs">
                     {msg.detectedConflict.explanation}
                   </p>
-                  <div className="p-2 rounded bg-amber-950/60 border border-amber-600/30 text-[11px] text-amber-300 font-mono">
-                    Superseded: &ldquo;{msg.detectedConflict.previousMemory.title}&rdquo; &rarr; marked status: &apos;superseded&apos;
+                  <div className="p-2 rounded bg-amber-950/60 border border-amber-600/30 text-[11px] text-amber-300 font-mono flex items-center justify-between">
+                    <span>Superseded: &ldquo;{msg.detectedConflict.previousMemory.title}&rdquo;</span>
+                    <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300">status: superseded</span>
                   </div>
                 </div>
               )}

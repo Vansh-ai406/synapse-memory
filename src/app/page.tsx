@@ -5,6 +5,7 @@ import Sidebar, { StudioView } from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import ChatPlayground from '@/components/ChatPlayground';
 import MemoryExplorer from '@/components/MemoryExplorer';
+import ContextInspector from '@/components/ContextInspector';
 import MemoryGraphCanvas from '@/components/MemoryGraphCanvas';
 import MultiAgentView from '@/components/MultiAgentView';
 import CodeReviewerView from '@/components/CodeReviewerView';
@@ -202,6 +203,26 @@ export default function Home() {
     }
   };
 
+  // Update / Correct memory in MongoDB
+  const handleUpdateMemory = async (id: string, updates: Partial<MemoryDocument>) => {
+    try {
+      const res = await fetch('/api/memories', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, updates }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (inspectingMemory && inspectingMemory._id === id) {
+          setInspectingMemory((prev) => (prev ? { ...prev, ...data.memory } : null));
+        }
+        fetchMemories();
+      }
+    } catch (err) {
+      console.error('Update memory error:', err);
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#07090e] text-slate-100">
       {/* Studio Navigation Sidebar */}
@@ -295,13 +316,15 @@ export default function Home() {
             )}
           </main>
 
-          {/* Right Side Docked Memory Drawer (shown when toggled, except in explorer view) */}
+          {/* Right Side Docked Context Inspector Panel (3-Pane Studio Layout) */}
           {showDrawer && activeView !== 'explorer' && (
-            <aside className="w-80 lg:w-96 flex-shrink-0 h-full hidden md:flex flex-col animate-in fade-in slide-in-from-right-4 duration-200">
-              <MemoryExplorer
+            <aside className="w-80 lg:w-[420px] flex-shrink-0 h-full hidden md:flex flex-col animate-in fade-in slide-in-from-right-4 duration-200">
+              <ContextInspector
                 memories={memories}
-                onInspect={(mem) => setInspectingMemory(mem)}
-                onDelete={handleDeleteMemory}
+                activeInspectedMemory={inspectingMemory}
+                onSelectMemory={(mem) => setInspectingMemory(mem)}
+                onUpdateMemory={handleUpdateMemory}
+                onDeleteMemory={handleDeleteMemory}
                 onAddManual={handleAddManual}
                 lastUpdatedId={lastUpdatedId}
               />

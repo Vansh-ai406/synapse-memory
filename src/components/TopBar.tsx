@@ -119,7 +119,7 @@ export default function TopBar({
               <PanelRightOpen className="w-3.5 h-3.5" />
             )}
             <span className="text-[11px]">
-              Memory Bank <span className="font-mono text-[10px] text-slate-300">({totalMemoriesCount})</span>
+              {activeView === 'chat' ? 'Context Inspector' : 'Memory Vault'} <span className="font-mono text-[10px] text-slate-300">({totalMemoriesCount})</span>
             </span>
           </button>
         )}
@@ -127,3 +127,4 @@ export default function TopBar({
     </header>
   );
 }
+

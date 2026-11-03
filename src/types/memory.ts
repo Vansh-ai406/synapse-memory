@@ -4,7 +4,8 @@ export type MemoryType =
   | 'decision' 
   | 'incident_fix' 
   | 'runbook' 
-  | 'fact';
+  | 'fact'
+  | 'feedback';
 
 export type MemoryStatus = 'active' | 'superseded' | 'deprecated' | 'expired';
 

@@ -372,6 +372,70 @@ export function deleteInMemoryMemory(id: string): boolean {
   return false;
 }
 
+export async function updateMemory(
+  id: string,
+  updates: Partial<MemoryDocument>
+): Promise<MemoryDocument | null> {
+  const now = new Date().toISOString();
+  let updatedDoc: MemoryDocument | null = null;
+
+  // Recompute embedding if title or content changed
+  let newEmbedding: number[] | undefined;
+  if (updates.title || updates.content) {
+    const title = updates.title || '';
+    const content = updates.content || '';
+    newEmbedding = await getEmbedding(`${title}: ${content}`);
+  }
+
+  // Update in MongoDB if available
+  try {
+    const db = await getDb();
+    const collection = db.collection<MemoryDocument>(COLLECTION_NAME);
+    const filter = ObjectId.isValid(id) ? { _id: new ObjectId(id) as any } : { _id: id as any };
+
+    const mongoUpdates: any = {
+      ...updates,
+      updatedAt: now,
+    };
+    if (newEmbedding) {
+      mongoUpdates.embedding = newEmbedding;
+    }
+    delete mongoUpdates._id;
+
+    await collection.updateOne(filter, { $set: mongoUpdates });
+    const fetched = await collection.findOne(filter);
+    if (fetched) {
+      updatedDoc = { ...fetched, _id: fetched._id?.toString() };
+    }
+  } catch (err) {
+    console.warn('MongoDB direct update failed, updating in-memory cache:', err);
+  }
+
+  // Update in inMemoryStore
+  const idx = inMemoryStore.findIndex((m) => m._id === id);
+  if (idx !== -1) {
+    inMemoryStore[idx] = {
+      ...inMemoryStore[idx],
+      ...updates,
+      ...(newEmbedding ? { embedding: newEmbedding } : {}),
+      updatedAt: now,
+    };
+    if (!updatedDoc) {
+      updatedDoc = inMemoryStore[idx];
+    }
+  }
+
+  if (updatedDoc) {
+    memoryEventBus.emit({
+      operationType: 'update',
+      documentKey: { _id: id },
+      fullDocument: updatedDoc,
+    });
+  }
+
+  return updatedDoc;
+}
+
 export function clearInMemoryMemories(workspaceId: string) {
   for (let i = inMemoryStore.length - 1; i >= 0; i--) {
     if (inMemoryStore[i].workspaceId === workspaceId) {

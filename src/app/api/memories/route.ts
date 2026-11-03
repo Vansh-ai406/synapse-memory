@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDb } from '@/lib/mongodb';
-import { storeMemory, getInMemoryMemories, deleteInMemoryMemory, memoryEventBus } from '@/lib/memory-service';
+import { storeMemory, getInMemoryMemories, deleteInMemoryMemory, updateMemory, memoryEventBus } from '@/lib/memory-service';
 import { MemoryDocument } from '@/types/memory';
 
 const COLLECTION_NAME = 'memories';
@@ -113,6 +113,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ memory: result.memory, conflictedMemory: result.conflictedMemory });
   } catch (error: any) {
     console.error('Store Memory Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, updates } = body;
+
+    if (!id || !updates) {
+      return NextResponse.json(
+        { error: 'id and updates object are required' },
+        { status: 400 }
+      );
+    }
+
+    const updated = await updateMemory(id, updates);
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'Memory not found or failed to update' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, memory: updated });
+  } catch (error: any) {
+    console.error('Update Memory Error:', error);
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
       { status: 500 }

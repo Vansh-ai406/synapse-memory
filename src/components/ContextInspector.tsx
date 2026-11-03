@@ -21,6 +21,7 @@ import {
   LayoutGrid,
   RefreshCw,
   ExternalLink,
+  Maximize2,
 } from 'lucide-react';
 import { MemoryDocument, MemoryType, RetrievedMemory } from '@/types/memory';
 import { formatTimeAgo } from '@/lib/utils';
@@ -33,6 +34,7 @@ interface ContextInspectorProps {
   onUpdateMemory: (id: string, updates: Partial<MemoryDocument>) => Promise<void>;
   onDeleteMemory: (id: string) => Promise<void>;
   onAddManual: (mem: Partial<MemoryDocument>) => Promise<void>;
+  onExpandModal?: (mem: RetrievedMemory) => void;
   lastUpdatedId?: string | null;
 }
 
@@ -43,6 +45,7 @@ export default function ContextInspector({
   onUpdateMemory,
   onDeleteMemory,
   onAddManual,
+  onExpandModal,
   lastUpdatedId,
 }: ContextInspectorProps) {
   const [activeTab, setActiveTab] = useState<'inspector' | 'vault'>('inspector');
@@ -51,6 +54,17 @@ export default function ContextInspector({
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Active memory to display: explicitly inspected memory, or first available from store
+  const activeMemory: RetrievedMemory | null =
+    activeInspectedMemory ||
+    (memories.length > 0
+      ? {
+          ...memories[0],
+          similarityScore: 0.94,
+          retrievalReason: 'Recalled from active MongoDB Vector collection',
+        }
+      : null);
 
   // Inline editing state for memory corrections
   const [isEditing, setIsEditing] = useState(false);
@@ -69,36 +83,21 @@ export default function ContextInspector({
     return () => clearInterval(timer);
   }, []);
 
-  // When activeInspectedMemory changes, switch to inspector tab and sync edit form
+  // When activeMemory changes, sync edit form without triggering parent loops
   useEffect(() => {
-    if (activeInspectedMemory) {
-      setActiveTab('inspector');
-      setEditTitle(activeInspectedMemory.title);
-      setEditContent(activeInspectedMemory.content);
-      setEditType(activeInspectedMemory.type);
+    if (activeMemory) {
+      setEditTitle(activeMemory.title);
+      setEditContent(activeMemory.content);
+      setEditType(activeMemory.type);
       setIsEditing(false);
     }
-  }, [activeInspectedMemory]);
-
-  // If no memory is selected but inspector tab opened, select first active memory as default
-  useEffect(() => {
-    if (!activeInspectedMemory && memories.length > 0 && activeTab === 'inspector') {
-      const firstActive = memories.find((m) => m.lifecycle?.status === 'active') || memories[0];
-      if (firstActive) {
-        onSelectMemory({
-          ...firstActive,
-          similarityScore: 0.94,
-          retrievalReason: 'Directly recalled from active MongoDB Vector collection',
-        });
-      }
-    }
-  }, [activeInspectedMemory, memories, activeTab, onSelectMemory]);
+  }, [activeMemory?._id, activeMemory?.title, activeMemory?.content]);
 
   const handleSaveCorrection = async () => {
-    if (!activeInspectedMemory?._id) return;
+    if (!activeMemory?._id) return;
     setIsSaving(true);
     try {
-      await onUpdateMemory(activeInspectedMemory._id, {
+      await onUpdateMemory(activeMemory._id, {
         title: editTitle,
         content: editContent,
         type: editType,
@@ -112,12 +111,12 @@ export default function ContextInspector({
   };
 
   const handleMarkSuperseded = async () => {
-    if (!activeInspectedMemory?._id) return;
+    if (!activeMemory?._id) return;
     const reason = prompt('Enter superseding rationale (e.g., Contradicted by newer sprint policy):', 'Superseded via Context Inspector');
     if (!reason) return;
-    await onUpdateMemory(activeInspectedMemory._id, {
+    await onUpdateMemory(activeMemory._id, {
       lifecycle: {
-        ...activeInspectedMemory.lifecycle,
+        ...activeMemory.lifecycle,
         status: 'superseded',
         supersededReason: reason,
       },
@@ -178,6 +177,17 @@ export default function ContextInspector({
           </button>
         </div>
 
+        {activeTab === 'inspector' && activeMemory && onExpandModal && (
+          <button
+            onClick={() => onExpandModal(activeMemory)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.06] text-xs transition border border-white/[0.06]"
+            title="Expand into full-screen dialog"
+          >
+            <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[11px] hidden sm:inline">Maximize</span>
+          </button>
+        )}
+
         {activeTab === 'vault' && (
           <div className="flex items-center gap-1.5">
             <button
@@ -206,7 +216,7 @@ export default function ContextInspector({
       {activeTab === 'inspector' ? (
         /* CONTEXT INSPECTOR VIEW */
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {activeInspectedMemory ? (
+          {activeMemory ? (
             <>
               {/* Attribution Banner / Chip Summary */}
               <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#121826] to-[#0e131f] border border-[#00ed64]/25 shadow-inner-glow space-y-2">
@@ -218,23 +228,23 @@ export default function ContextInspector({
                     </span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-mono">
-                    TTL: {activeInspectedMemory.expiresAt ? getTtlRemaining(activeInspectedMemory.expiresAt) : 'Permanent'}
+                    TTL: {activeMemory.expiresAt ? getTtlRemaining(activeMemory.expiresAt) : 'Permanent'}
                   </span>
                 </div>
 
                 <div className="bg-[#090b10]/80 rounded-lg p-2.5 border border-white/[0.06] text-xs">
                   <div className="text-[11px] font-mono text-emerald-300 font-medium">
                     Pulled from chat on{' '}
-                    {new Date(activeInspectedMemory.createdAt || Date.now()).toLocaleDateString('en-US', {
+                    {new Date(activeMemory.createdAt || Date.now()).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                     })}
-                    : <span className="text-white font-semibold">{activeInspectedMemory.title}</span>
+                    : <span className="text-white font-semibold">{activeMemory.title}</span>
                   </div>
                   <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-2">
-                    <span>Source: {activeInspectedMemory.source?.sessionId || 'cross-session'}</span>
+                    <span>Source: {activeMemory.source?.sessionId || 'cross-session'}</span>
                     <span>•</span>
-                    <span>Author: {activeInspectedMemory.source?.author || activeInspectedMemory.userId || 'system'}</span>
+                    <span>Author: {activeMemory.source?.author || activeMemory.userId || 'system'}</span>
                   </div>
                 </div>
               </div>
@@ -244,7 +254,7 @@ export default function ContextInspector({
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400 font-medium">Semantic Similarity Score</span>
                   <span className="font-mono text-emerald-400 font-bold text-sm">
-                    {Math.round((activeInspectedMemory.similarityScore || 0.94) * 100)}% Match
+                    {Math.round((activeMemory.similarityScore || 0.94) * 100)}% Match
                   </span>
                 </div>
 
@@ -253,14 +263,14 @@ export default function ContextInspector({
                   <div
                     className="bg-gradient-to-r from-teal-500 via-emerald-400 to-[#00ed64] h-full rounded-full transition-all duration-500"
                     style={{
-                      width: `${Math.round((activeInspectedMemory.similarityScore || 0.94) * 100)}%`,
+                      width: `${Math.round((activeMemory.similarityScore || 0.94) * 100)}%`,
                     }}
                   />
                 </div>
 
                 <div className="text-[11px] text-slate-300/90 leading-relaxed bg-[#0a0d14] p-2.5 rounded-lg border border-white/[0.04]">
                   <span className="text-emerald-400 font-semibold">Recall Rationale: </span>
-                  {activeInspectedMemory.retrievalReason ||
+                  {activeMemory.retrievalReason ||
                     'Indexed via text-embedding-3-small (1536 dims). Recalled dynamically via MongoDB Atlas Vector Search based on semantic query match with active session prompts.'}
                 </div>
               </div>
@@ -273,16 +283,16 @@ export default function ContextInspector({
                   </h3>
                   <div className="flex items-center gap-1.5">
                     <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-emerald-500/10 text-[#00ed64] border border-emerald-500/25 font-mono">
-                      {activeInspectedMemory.type}
+                      {activeMemory.type}
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase font-mono ${
-                        activeInspectedMemory.lifecycle?.status === 'active'
+                        activeMemory.lifecycle?.status === 'active'
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                           : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                       }`}
                     >
-                      {activeInspectedMemory.lifecycle?.status || 'active'}
+                      {activeMemory.lifecycle?.status || 'active'}
                     </span>
                   </div>
                 </div>
@@ -346,20 +356,20 @@ export default function ContextInspector({
                     <div>
                       <div className="text-[10px] uppercase font-mono text-slate-500 font-semibold">Title</div>
                       <div className="text-xs font-semibold text-slate-100 mt-0.5">
-                        {activeInspectedMemory.title}
+                        {activeMemory.title}
                       </div>
                     </div>
 
                     <div>
                       <div className="text-[10px] uppercase font-mono text-slate-500 font-semibold">Content</div>
                       <div className="text-xs text-slate-300/90 leading-relaxed bg-[#0a0d14] p-2.5 rounded-lg border border-white/[0.04] mt-0.5">
-                        {activeInspectedMemory.content}
+                        {activeMemory.content}
                       </div>
                     </div>
 
-                    {activeInspectedMemory.tags && activeInspectedMemory.tags.length > 0 && (
+                    {activeMemory.tags && activeMemory.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 pt-1">
-                        {activeInspectedMemory.tags.map((t, i) => (
+                        {activeMemory.tags.map((t, i) => (
                           <span
                             key={i}
                             className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.05] text-slate-400 border border-white/[0.05]"
@@ -385,7 +395,7 @@ export default function ContextInspector({
                   </button>
                 )}
 
-                {activeInspectedMemory.lifecycle?.status === 'active' && (
+                {activeMemory.lifecycle?.status === 'active' && (
                   <button
                     onClick={handleMarkSuperseded}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-950/20 hover:bg-amber-950/40 text-amber-300 border border-amber-500/20 text-xs font-medium transition"
@@ -399,8 +409,8 @@ export default function ContextInspector({
                 <button
                   onClick={async () => {
                     if (confirm('Delete this memory from MongoDB?')) {
-                      if (activeInspectedMemory._id) {
-                        await onDeleteMemory(activeInspectedMemory._id);
+                      if (activeMemory._id) {
+                        await onDeleteMemory(activeMemory._id);
                         onSelectMemory(null);
                       }
                     }
@@ -430,17 +440,17 @@ export default function ContextInspector({
                     <pre className="whitespace-pre-wrap">
                       {JSON.stringify(
                         {
-                          _id: activeInspectedMemory._id,
-                          workspaceId: activeInspectedMemory.workspaceId,
-                          userId: activeInspectedMemory.userId,
-                          type: activeInspectedMemory.type,
-                          title: activeInspectedMemory.title,
-                          content: activeInspectedMemory.content,
-                          lifecycle: activeInspectedMemory.lifecycle,
-                          source: activeInspectedMemory.source,
-                          expiresAt: activeInspectedMemory.expiresAt,
-                          embedding_dim: activeInspectedMemory.embedding ? activeInspectedMemory.embedding.length : 1536,
-                          updatedAt: activeInspectedMemory.updatedAt,
+                          _id: activeMemory._id,
+                          workspaceId: activeMemory.workspaceId,
+                          userId: activeMemory.userId,
+                          type: activeMemory.type,
+                          title: activeMemory.title,
+                          content: activeMemory.content,
+                          lifecycle: activeMemory.lifecycle,
+                          source: activeMemory.source,
+                          expiresAt: activeMemory.expiresAt,
+                          embedding_dim: activeMemory.embedding ? activeMemory.embedding.length : 1536,
+                          updatedAt: activeMemory.updatedAt,
                         },
                         null,
                         2

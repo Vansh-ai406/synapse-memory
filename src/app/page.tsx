@@ -24,6 +24,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [inspectingMemory, setInspectingMemory] = useState<RetrievedMemory | null>(null);
+  const [fullscreenModalMemory, setFullscreenModalMemory] = useState<RetrievedMemory | null>(null);
   const [lastUpdatedId, setLastUpdatedId] = useState<string | null>(null);
 
   // Fetch all memories from MongoDB API
@@ -260,28 +261,40 @@ export default function Home() {
                 isLoading={isLoading}
                 sessionId={sessionId}
                 setSessionId={setSessionId}
-                onInspectMemory={(mem) => setInspectingMemory(mem)}
+                onInspectMemory={(mem) => {
+                  setInspectingMemory(mem);
+                  setShowDrawer(true);
+                }}
               />
             )}
 
             {activeView === 'multi-agent' && (
               <MultiAgentView
                 workspaceId={workspaceId}
-                onInspectMemory={(mem) => setInspectingMemory(mem)}
+                onInspectMemory={(mem) => {
+                  setInspectingMemory(mem);
+                  setShowDrawer(true);
+                }}
               />
             )}
 
             {activeView === 'code-review' && (
               <CodeReviewerView
                 workspaceId={workspaceId}
-                onInspectMemory={(mem) => setInspectingMemory(mem)}
+                onInspectMemory={(mem) => {
+                  setInspectingMemory(mem);
+                  setShowDrawer(true);
+                }}
               />
             )}
 
             {activeView === 'incident' && (
               <IncidentSimulatorView
                 workspaceId={workspaceId}
-                onInspectMemory={(mem) => setInspectingMemory(mem)}
+                onInspectMemory={(mem) => {
+                  setInspectingMemory(mem);
+                  setShowDrawer(true);
+                }}
                 onRefreshMemories={fetchMemories}
               />
             )}
@@ -297,7 +310,10 @@ export default function Home() {
               <div className="flex-1 h-full rounded-2xl border border-white/[0.08] bg-[#0d1017]/90 backdrop-blur-xl p-3 shadow-2xl overflow-hidden">
                 <MemoryGraphCanvas
                   memories={memories}
-                  onInspectNode={(mem) => setInspectingMemory(mem)}
+                  onInspectNode={(mem) => {
+                    setInspectingMemory(mem as RetrievedMemory);
+                    setShowDrawer(true);
+                  }}
                   lastUpdatedId={lastUpdatedId}
                 />
               </div>
@@ -307,7 +323,10 @@ export default function Home() {
               <div className="flex-1 h-full">
                 <MemoryExplorer
                   memories={memories}
-                  onInspect={(mem) => setInspectingMemory(mem)}
+                  onInspect={(mem) => {
+                    setInspectingMemory(mem);
+                    setShowDrawer(true);
+                  }}
                   onDelete={handleDeleteMemory}
                   onAddManual={handleAddManual}
                   lastUpdatedId={lastUpdatedId}
@@ -326,6 +345,7 @@ export default function Home() {
                 onUpdateMemory={handleUpdateMemory}
                 onDeleteMemory={handleDeleteMemory}
                 onAddManual={handleAddManual}
+                onExpandModal={(mem) => setFullscreenModalMemory(mem)}
                 lastUpdatedId={lastUpdatedId}
               />
             </aside>
@@ -333,11 +353,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Vector Explainability Modal */}
-      {inspectingMemory && (
+      {/* Vector Explainability Modal (only shown when explicitly expanded) */}
+      {fullscreenModalMemory && (
         <ExplainabilityModal
-          memory={inspectingMemory}
-          onClose={() => setInspectingMemory(null)}
+          memory={fullscreenModalMemory}
+          onClose={() => setFullscreenModalMemory(null)}
         />
       )}
     </div>
